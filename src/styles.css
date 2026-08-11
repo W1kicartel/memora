@@ -3177,7 +3177,7 @@ body::before, body::after { display: none; }
 /* ── KLIPY attribution (required by their integration terms) ── */
 .wg-gif-attribution { text-align: right; font-size: .68rem; margin: .35rem 0 0; opacity: .75; }
 
-/* ══ Guided tour: spotlight coach-marks + Graffetta ══════════════════════ */
+/* ══ Guided tour: spotlight coach-marks + Memo the paperclip ══════════════════════ */
 
 .tour-root { position: fixed; inset: 0; z-index: 80; }
 
@@ -3233,7 +3233,7 @@ body::before, body::after { display: none; }
 .tour-dot.on { background: var(--accent); transform: scale(1.35); }
 .tour-buttons { display: flex; gap: .4rem; }
 
-/* Graffetta: gentle float; eyes blink on their own clock. */
+/* Memo: gentle float; eyes blink on their own clock. */
 .tour-card-mascot { flex: 0 0 auto; margin-top: .1rem; }
 .tour-mascot { animation: tour-float 3.2s ease-in-out infinite; }
 @keyframes tour-float {

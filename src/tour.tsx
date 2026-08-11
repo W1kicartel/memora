@@ -5,7 +5,7 @@
  * *glides* from one UI element to the next (one absolutely-positioned div
  * with a huge box-shadow — the classic spotlight trick — animated via CSS
  * transitions), a floating card anchored next to the highlighted element,
- * and Graffetta 📎, the paperclip guide, walking you through every tab.
+ * and Memo 📎, the paperclip guide, walking you through every tab.
  *
  * Deliberately non-skippable but short: seven stops, ~two minutes. The tour
  * actually navigates the app while it talks, so by the end the user has
@@ -34,14 +34,14 @@ function markTourDone(): void {
   try { localStorage.setItem(TOUR_KEY, String(Date.now())); } catch { /* ignore */ }
 }
 
-/* ─── Graffetta, the paperclip guide ─────────────────────────────────────── */
+/* ─── Memo, the paperclip guide ─────────────────────────────────────── */
 
 /**
  * A kawaii paperclip: chubby capsule body with the clip's inner wire hinted
  * on the lower half, big sparkly eyes, blush, an open smile and a waving
  * arm. Floats, blinks and waves via CSS (.tour-mascot / -eye / -arm).
  */
-export function Graffetta({ size = 92 }: { size?: number }) {
+export function Memo({ size = 92 }: { size?: number }) {
   return (
     <svg
       className="tour-mascot"
@@ -117,7 +117,7 @@ const STEPS: TourStep[] = [
   {
     target: null, tab: null,
     title: `Benvenuta in ${APP_NAME}!`,
-    text: "Sono Graffetta, la tua guida. Ti faccio fare un giro veloce — due minuti, promesso, e poi non mi vedi più.",
+    text: "Sono Memo, la graffetta di Memora e la tua guida. Ti faccio fare un giro veloce — due minuti, promesso, e poi non mi vedi più.",
   },
   {
     target: "decks", tab: "decks",
@@ -223,7 +223,7 @@ export function GuidedTour({
       )}
 
       <div className="tour-card" style={cardStyle} key={index}>
-        <div className="tour-card-mascot"><Graffetta /></div>
+        <div className="tour-card-mascot"><Memo /></div>
         <div className="tour-card-body">
           <h3>{step.title}</h3>
           <p>{step.text}</p>

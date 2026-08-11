@@ -68,7 +68,7 @@ export function App() {
   const [view, setView] = useState<View>({ tab: "decks" });
   const [navOpen, setNavOpen] = useState(true);
   const [supportOpen, setSupportOpen] = useState(false);
-  // First launch → Graffetta's guided tour (replayable from Profile).
+  // First launch → Memo's guided tour (replayable from Profile).
   const [tourOpen, setTourOpen] = useState(() => tourPending());
   // App hosts the language provider, so it translates directly rather than via useT().
   const t: TFn = (key, params) => translate(settings.lang, key, params);
@@ -1058,7 +1058,7 @@ function ProfileView({ settings, onChange, onLoadDemo, onReplayTour }: { setting
       <section className="card-box">
         <h3>📎 Tour guidato</h3>
         <p className="hint" style={{ marginBottom: ".7rem" }}>
-          Rifai il giro dell'app con Graffetta, la guida del primo avvio.
+          Rifai il giro dell'app con Memo, la graffetta che ti ha accolto al primo avvio.
         </p>
         <button className="ghost" onClick={onReplayTour}>Rivedi il tour</button>
       </section>

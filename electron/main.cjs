@@ -8,6 +8,18 @@ const { spawn, execFile } = require('child_process');
 let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); } catch { /* dev env */ }
 
+/* ── Edition ──────────────────────────────────────────────────────────────
+   The social build injects `memoraEdition: "social"` into package.json via
+   electron-builder's extraMetadata (see electron-builder.social.json). The
+   private edition — and plain dev runs — have no field and default here. */
+let EDITION = 'private';
+try {
+  EDITION = require(path.join(__dirname, '..', 'package.json')).memoraEdition || 'private';
+} catch { /* dev tree without package.json is impossible, but stay safe */ }
+const IS_SOCIAL = EDITION === 'social';
+const APP_NAME = IS_SOCIAL ? 'Memora Social' : 'Memora';
+const APP_ID = IS_SOCIAL ? 'app.memora.social' : 'app.memora.desktop';
+
 /* ════════════════════════════════════════════════════════════════════════
    Local AI bootstrap — Ollama installs itself on first launch.
    Flow: probe the server → (download + silent-install if missing) →
@@ -16,7 +28,8 @@ try { ({ autoUpdater } = require('electron-updater')); } catch { /* dev env */ }
    ════════════════════════════════════════════════════════════════════════ */
 
 const OLLAMA = 'http://127.0.0.1:11434';
-const INSTALLER_URL = 'https://ollama.com/download/OllamaSetup.exe';
+const INSTALLER_URL = 'https://ollama.com/download/OllamaSetup.exe';        // Windows (Inno Setup)
+const INSTALLER_URL_MAC = 'https://ollama.com/download/Ollama-darwin.zip';  // macOS (Ollama.app in a zip)
 
 // The app's specialised model: a derivative of a small multimodal base with
 // the Memora study-engine identity and tuned parameters baked in.
@@ -44,10 +57,21 @@ async function serverUp() {
 }
 
 function findOllamaExe() {
-  const candidates = [
-    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe'),
-    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Ollama', 'ollama.exe'),
-  ];
+  const home = os.homedir();
+  const candidates = process.platform === 'darwin'
+    ? [
+        // Homebrew installs first (Apple Silicon, then Intel), then the app
+        // bundle's embedded CLI — ours lands in ~/Applications, but respect a
+        // copy the user dragged to /Applications themselves.
+        '/opt/homebrew/bin/ollama',
+        '/usr/local/bin/ollama',
+        path.join(home, 'Applications', 'Ollama.app', 'Contents', 'Resources', 'ollama'),
+        '/Applications/Ollama.app/Contents/Resources/ollama',
+      ]
+    : [
+        path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe'),
+        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Ollama', 'ollama.exe'),
+      ];
   return candidates.find((p) => {
     try { return fs.existsSync(p); } catch { return false; }
   }) || null;
@@ -76,6 +100,25 @@ function runInstallerSilent(exe) {
   // Ollama's Windows installer is Inno Setup — these flags mean no UI at all.
   return new Promise((resolve, reject) => {
     execFile(exe, ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'], { windowsHide: true },
+      (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+/**
+ * macOS install: unzip Ollama.app into ~/Applications (user-writable, no admin
+ * prompt). `ditto -x -k` is Apple's own extractor — it preserves the bundle's
+ * code signature, which generic unzippers can corrupt. The zip is fetched by
+ * us (not a browser), so no quarantine attribute is attached and the embedded
+ * CLI runs without a Gatekeeper dialog.
+ */
+async function installOllamaMac() {
+  const zip = path.join(os.tmpdir(), 'Ollama-darwin.zip');
+  await downloadFile(INSTALLER_URL_MAC, zip);
+  setStatus({ progress: 100, detail: 'installazione in corso' });
+  const appsDir = path.join(os.homedir(), 'Applications');
+  fs.mkdirSync(appsDir, { recursive: true });
+  await new Promise((resolve, reject) => {
+    execFile('/usr/bin/ditto', ['-x', '-k', zip, appsDir],
       (err) => (err ? reject(err) : resolve()));
   });
 }
@@ -179,19 +222,23 @@ async function bootstrapOllama() {
     if (!(await serverUp())) {
       let exe = findOllamaExe();
       if (!exe) {
-        if (process.platform !== 'win32') {
+        if (process.platform !== 'win32' && process.platform !== 'darwin') {
           setStatus({ phase: 'error', detail: 'installa Ollama da ollama.com' });
           return;
         }
         setStatus({ phase: 'installing', progress: 0, detail: 'download di Ollama' });
-        const installer = path.join(os.tmpdir(), 'OllamaSetup.exe');
         try {
-          await downloadFile(INSTALLER_URL, installer);
+          if (process.platform === 'darwin') {
+            await installOllamaMac();
+          } else {
+            const installer = path.join(os.tmpdir(), 'OllamaSetup.exe');
+            await downloadFile(INSTALLER_URL, installer);
+            setStatus({ progress: 100, detail: 'installazione in corso' });
+            await runInstallerSilent(installer);
+          }
         } catch (e) {
           throw new Error(`download di Ollama fallito (${e.message}). Controlla la connessione e premi Riprova.`);
         }
-        setStatus({ progress: 100, detail: 'installazione in corso' });
-        await runInstallerSilent(installer);
         exe = findOllamaExe();
         if (!exe) throw new Error("l'installazione di Ollama non è andata a buon fine (antivirus?). Premi Riprova, o installa Ollama da ollama.com e riapri l'app.");
       }
@@ -259,7 +306,7 @@ function sendUpdate(payload) {
 
 function notify(body) {
   try {
-    if (Notification.isSupported()) new Notification({ title: 'Memora', body }).show();
+    if (Notification.isSupported()) new Notification({ title: APP_NAME, body }).show();
   } catch { /* notifications disabled — the in-app note still shows */ }
 }
 
@@ -270,14 +317,18 @@ function setupAutoUpdate() {
 
   autoUpdater.on('update-available', (info) => {
     sendUpdate({ phase: 'downloading', version: info.version, progress: 0 });
-    notify(`C'è una nuova versione di Memora (${info.version}): la sto scaricando per te.`);
+    notify(IS_SOCIAL
+      ? `Nuova versione di ${APP_NAME} (${info.version}) in download.`
+      : `C'è una nuova versione di Memora (${info.version}): la sto scaricando per te.`);
   });
   autoUpdater.on('download-progress', (p) => {
     sendUpdate({ phase: 'downloading', progress: p.percent });
   });
   autoUpdater.on('update-downloaded', (info) => {
     sendUpdate({ phase: 'ready', version: info.version });
-    notify(`Aggiornamento ${info.version} pronto — riavvia Memora per installarlo. ♥`);
+    notify(IS_SOCIAL
+      ? `Aggiornamento ${info.version} pronto — riavvia ${APP_NAME} per installarlo.`
+      : `Aggiornamento ${info.version} pronto — riavvia Memora per installarlo. ♥`);
   });
   // Offline, rate-limited or no release yet: stay silent, retry later.
   autoUpdater.on('error', () => {});
@@ -341,7 +392,7 @@ function createMainWindow() {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    title: 'Memora',
+    title: APP_NAME,
     icon: path.join(__dirname, '..', 'build', 'icon.ico'),
     backgroundColor: '#f3ede1',         // warm paper — matches the Carta theme, no flash
     // Hide the native title bar; keep functional min/max/close as an overlay tinted
@@ -379,11 +430,15 @@ function createMainWindow() {
 
 app.whenReady().then(() => {
   // Required on Windows for toast notifications to actually appear.
-  app.setAppUserModelId('app.memora.desktop');
+  app.setAppUserModelId(APP_ID);
   createMainWindow();
-  // Ollama is NOT bootstrapped here: it starts on demand via 'ollama:ensure'
-  // when the user selects the local-AI provider.
   setupAutoUpdate();
+  // Ready-to-use out of the box: local AI is the default provider, so the
+  // whole chain (install Ollama → start it → pull the model → build
+  // memora-engine) runs on first launch, not when someone finds the setting.
+  // The short delay lets the window paint before the download starts;
+  // 'ollama:ensure' / 'ollama:retry' still work and are no-ops mid-bootstrap.
+  setTimeout(() => { bootstrapOllama(); }, 2500);
 });
 
 app.on('window-all-closed', () => {

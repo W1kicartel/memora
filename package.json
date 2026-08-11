@@ -1,19 +1,24 @@
 {
   "name": "memora",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.1.0",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Memora — the evidence-based study workspace. Spaced repetition, a local AI study engine (auto-installed Ollama) and built-in mnemonic techniques.",
+  "author": "W1kicartel",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "tsx src/sm2.test.ts && tsx src/import.test.ts && tsx src/stats.test.ts && tsx src/life.test.ts && tsx src/workgroup.test.ts && tsx src/jsonx.test.ts && tsx src/conceptmap.test.ts && tsx src/moments.test.ts && tsx src/score.test.ts && tsx src/music.test.ts",
+    "test": "tsx src/sm2.test.ts && tsx src/import.test.ts && tsx src/stats.test.ts && tsx src/life.test.ts && tsx src/workgroup.test.ts && tsx src/leaderboard.test.ts && tsx src/jsonx.test.ts && tsx src/conceptmap.test.ts && tsx src/moments.test.ts && tsx src/score.test.ts && tsx src/music.test.ts",
     "electron": "npm run build && electron .",
     "package": "npm run build && electron-builder --win",
-    "release": "npm run build && electron-builder --win --publish always"
+    "release": "npm run build && electron-builder --win --publish always",
+    "dev:social": "vite --mode social",
+    "build:social": "tsc && vite build --mode social",
+    "package:social": "npm run build:social && electron-builder --win --config electron-builder.social.json",
+    "release:social": "npm run build:social && electron-builder --win --config electron-builder.social.json --publish always"
   },
   "build": {
     "appId": "app.memora.desktop",
@@ -46,9 +51,30 @@
       "oneClick": true,
       "perMachine": false,
       "createDesktopShortcut": true
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.education",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
     }
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "electron-updater": "^6.8.9",
     "jszip": "^3.10.1",
     "react": "^18.3.1",

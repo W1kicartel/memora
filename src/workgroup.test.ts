@@ -8,8 +8,11 @@ import {
   decodeInvite,
   mergeGroups,
   joinGroup,
+  googleCalendarUrl,
+  eventToICS,
   type Workgroup,
   type Profile,
+  type GroupEvent,
 } from "./workgroup";
 
 let passed = 0;
@@ -90,6 +93,80 @@ const luca: Profile = { id: "u-luca", name: "Luca" };
 
   const rejoined = joinGroup(joined, g, luca);
   assert(rejoined[0].members.filter((m) => m.id === luca.id).length === 1, "re-joining does not duplicate the member");
+}
+
+// --- events merge ------------------------------------------------------------
+{
+  const a = createGroup("Con eventi", "", anna);
+  a.events!.push({ id: "e1", title: "Sessione in biblioteca", date: "2026-09-01", time: "15:00", createdBy: "Anna", createdAt: 1 });
+
+  const b: Workgroup = JSON.parse(JSON.stringify(a));
+  b.events!.push({ id: "e2", title: "Aperitivo post-esame", date: "2026-09-10", createdBy: "Luca", createdAt: 2 });
+
+  const m = mergeGroups(a, b);
+  assert((m.events ?? []).length === 2, "merge unions events");
+  assert((mergeGroups(m, b).events ?? []).length === 2, "event merge is idempotent");
+
+  // Snapshots from versions that predate events must merge without loss.
+  const legacy: Workgroup = { ...a, events: undefined };
+  assert((mergeGroups(legacy, b).events ?? []).length === 2, "legacy local + events incoming keeps events");
+  assert((mergeGroups(b, legacy).events ?? []).length === 2, "events local + legacy incoming keeps events");
+
+  // And the invite round-trip carries events along.
+  const back = decodeInvite(encodeInvite(m));
+  assert((back?.events ?? []).length === 2, "events survive the invite round-trip");
+}
+
+// --- chat merge --------------------------------------------------------------
+{
+  const a = createGroup("Con chat", "", anna);
+  a.chat!.push({ id: "m1", kind: "text", text: "Chi c'è domani?", author: "Anna", at: 10 });
+
+  const b: Workgroup = JSON.parse(JSON.stringify(a));
+  b.chat!.push({ id: "m2", kind: "gif", text: "thumbs up", media: "https://media.tenor.com/x.gif", author: "Luca", at: 5 });
+
+  const m = mergeGroups(a, b);
+  assert((m.chat ?? []).length === 2, "merge unions chat messages");
+  assert(m.chat![0].id === "m2" && m.chat![1].id === "m1", "merged chat is sorted by timestamp");
+  assert((mergeGroups(m, b).chat ?? []).length === 2, "chat merge is idempotent");
+
+  const legacy: Workgroup = { ...a, chat: undefined };
+  assert((mergeGroups(legacy, b).chat ?? []).length === 2, "legacy local + chat incoming keeps messages");
+  assert((mergeGroups(b, legacy).chat ?? []).length === 2, "chat local + legacy incoming keeps messages");
+
+  const back = decodeInvite(encodeInvite(m));
+  assert((back?.chat ?? []).length === 2, "chat survives the invite round-trip");
+  assert(back?.chat?.find((x) => x.id === "m2")?.media === "https://media.tenor.com/x.gif", "media url survives the round-trip");
+}
+
+// --- calendar bridges --------------------------------------------------------
+{
+  const ev: GroupEvent = {
+    id: "e1", title: "Ripasso, cap. 3", date: "2026-09-01", time: "15:00",
+    location: "Aula B", notes: "Portare appunti", createdBy: "Anna", createdAt: 1,
+  };
+
+  const url = googleCalendarUrl(ev, "Psico");
+  assert(url.startsWith("https://calendar.google.com/calendar/render?"), "google link hits the template endpoint");
+  assert(url.includes("20260901T150000%2F20260901T160000"), "timed event spans one hour");
+  assert(url.includes("location=Aula+B") || url.includes("location=Aula%20B"), "google link carries the location");
+
+  const allDay = googleCalendarUrl({ ...ev, time: undefined }, "Psico");
+  assert(allDay.includes("20260901%2F20260902"), "all-day event uses date/date+1 bounds");
+
+  const monthEnd = googleCalendarUrl({ ...ev, time: undefined, date: "2026-08-31" }, "Psico");
+  assert(monthEnd.includes("20260831%2F20260901"), "all-day end rolls over month boundaries");
+
+  const ics = eventToICS(ev, "Psico");
+  assert(ics.includes("BEGIN:VEVENT") && ics.includes("END:VCALENDAR"), "ics has the calendar envelope");
+  assert(ics.includes("SUMMARY:Ripasso\\, cap. 3"), "ics escapes commas in the summary");
+  assert(ics.includes("DTSTART:20260901T150000") && ics.includes("DTEND:20260901T160000"), "ics timed bounds");
+
+  const icsAllDay = eventToICS({ ...ev, time: undefined }, "Psico");
+  assert(icsAllDay.includes("DTSTART;VALUE=DATE:20260901"), "ics all-day uses VALUE=DATE");
+
+  const lateNight = eventToICS({ ...ev, time: "23:30" }, "Psico");
+  assert(lateNight.includes("DTEND:20260901T235900"), "23:30 event clamps the end to the same day");
 }
 
 console.log(`\nWorkgroup tests: ${passed} passed, ${failed} failed`);

@@ -58,6 +58,19 @@ actually works:
 
 **👥 Work Groups**
 - Create a study group and invite people with a **single link** — paste it, you're in
+- **Live sync** (opt-in per group): chat, events and the leaderboard flow to every member's app in real time through a relay backend; the capability travels inside the invite link, no accounts
+- **Group chat** with GIFs and meme stickers (Tenor-powered), merging across members like everything else
+- **Group events** on a mini calendar — one click adds them to Google Calendar (via the member's own Google login) or downloads an .ics for Apple Calendar/Outlook
+- **Monthly leaderboard**: study points and constancy across *any* subject — sealed during the month, podium revealed on the 1st
+
+> **Privacy note**: groups are local-first. A group only ever reaches the
+> backend when a member turns on live sync; synced content is visible to the
+> app operator for moderation (see `admin/dashboard.html`). Not end-to-end
+> encrypted — say so to your users, and don't share secrets in group chat.
+
+**🛟 Support**
+- A Support button in the nav: pick a reason (bug, feature idea, help, inappropriate-content report, data issues, other), write, send
+- Tickets land on the operator dashboard; replies come back as in-app notices — no email or account needed
 - **Shared folders** of study material: notes, links and whole flashcard decks
 - One-click "import into my decks" for shared decks
 - Local-first sync: snapshots travel via invite links and export/import bundles
@@ -88,6 +101,42 @@ npm run dev        # dev server at http://localhost:5173
 | `npm test` | run all test suites (139 tests) |
 | `npm run electron` | build and run the desktop app |
 | `npm run package` | build the Windows installer |
+
+### Two editions, one codebase
+
+Memora ships in two flavours built from the same source:
+
+- **Memora** (default) — the personal edition, dedications and rewards included.
+- **Memora Social** — the same study workspace for friends: decks, dashboard,
+  student life, AI and **fully compatible study groups** (invite links work
+  across editions), but without the song of the day and the rewards shop.
+
+The flag is baked in at build time: `vite build --mode social` reads
+`.env.social` (`VITE_EDITION=social`) for the renderer, and
+`electron-builder.social.json` injects `memoraEdition` into `package.json` for
+the Electron main process. Different `appId`/`productName` mean both apps
+install side-by-side with separate data; the social edition publishes releases
+to its own GitHub repo (`memora-social`), so each edition auto-updates on its
+own channel.
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev:social` | dev server for the social edition |
+| `npm run build:social` | type-check + production build (social) |
+| `npm run package:social` | build the social Windows installer (`release-social/`) |
+| `npm run release:social` | build + publish a social release to GitHub |
+
+### GIF & sticker search (Tenor key)
+
+The group chat searches GIFs and meme stickers through the
+[Tenor API](https://developers.google.com/tenor) — the same engine WhatsApp
+and Discord use. Tenor keys are free and made to be embedded in client apps:
+
+1. In [Google Cloud Console](https://console.cloud.google.com) create (or pick) a project, enable **Tenor API**, and create an **API key**.
+2. Add it to a `.env` file in the repo root: `VITE_TENOR_KEY=your-key`
+3. Rebuild. Every packaged copy now ships with working GIF/sticker search.
+
+Without a key the picker still lets people paste a direct image URL.
 
 ### The AI engine
 

@@ -25,6 +25,9 @@ import { SongWidget } from "./songwidget";
 import { completeSpotifyBrowserAuth } from "./music";
 import { initCardTilt, initRipple, initMagnetic } from "./cinematic";
 import { aiConfigured, statusLabel, useOllamaStatus, retryOllama, DEFAULT_OLLAMA_MODEL } from "./ollama";
+import { IS_SOCIAL, APP_NAME } from "./edition";
+import { fetchUnseenNotices, markNoticeSeen, type Notice } from "./notices";
+import { SUPPORT_CATEGORIES, sendSupport, type SupportCategory } from "./support";
 
 /* ─── helpers ───────────────────────────────────────────────────────────── */
 
@@ -63,6 +66,7 @@ export function App() {
   const [life, setLife] = useState<LifeState>(() => loadLife());
   const [view, setView] = useState<View>({ tab: "decks" });
   const [navOpen, setNavOpen] = useState(true);
+  const [supportOpen, setSupportOpen] = useState(false);
   // App hosts the language provider, so it translates directly rather than via useT().
   const t: TFn = (key, params) => translate(settings.lang, key, params);
 
@@ -75,6 +79,11 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
+
+  /* One dist serves both editions in dev; the tab title follows the edition. */
+  useEffect(() => {
+    document.title = APP_NAME;
+  }, []);
 
   /* Cinematic engine: ripple, card tilt, magnetic pull */
   useEffect(() => {
@@ -156,7 +165,7 @@ export function App() {
           >
             <IconMenu size={16} />
           </button>
-          <h1 onClick={() => setView({ tab: "decks" })}>Memora</h1>
+          <h1 onClick={() => setView({ tab: "decks" })}>{APP_NAME}</h1>
           <span className="tagline">{t("app.tagline")}</span>
           <span className="topbar-date">
             {new Date().toLocaleDateString(settings.lang === "en" ? "en-GB" : settings.lang, {
@@ -167,7 +176,7 @@ export function App() {
 
         <nav className="nav">
           <div className="nav-head">
-            <span className="nav-logo"><IconLogo size={17} />Memora</span>
+            <span className="nav-logo"><IconLogo size={17} />{APP_NAME}</span>
             <button
               className="nav-close"
               onClick={() => setNavOpen(false)}
@@ -190,7 +199,17 @@ export function App() {
               {t(n.labelKey)}
             </button>
           ))}
+          <button
+            className="nav-item nav-support"
+            onClick={() => setSupportOpen(true)}
+            aria-haspopup="dialog"
+          >
+            <span className="nav-icon" aria-hidden="true">🛟</span>
+            Supporto
+          </button>
         </nav>
+
+        {supportOpen && <SupportPanel onClose={() => setSupportOpen(false)} />}
 
         {view.tab === "decks" && (
           <DeckList
@@ -234,6 +253,8 @@ export function App() {
         {view.tab === "groups"    && (
           <WorkgroupView
             decks={decks}
+            events={events}
+            life={life}
             onImportDeck={(name, cards) => addCards(null, name, cards)}
           />
         )}
@@ -248,10 +269,13 @@ export function App() {
         {view.tab === "settings"  && <ProfileView settings={settings} onChange={setSettings} onLoadDemo={loadDemo} />}
 
         <footer className="footer">
-          Memora · fatto con <span className="footer-heart" aria-hidden="true">♥</span> per te · MIT License
+          {IS_SOCIAL
+            ? <>Memora Social · studiare insieme è meglio · MIT License</>
+            : <>Memora · fatto con <span className="footer-heart" aria-hidden="true">♥</span> per te · MIT License</>}
         </footer>
 
         <UpdateToast />
+        <NoticesToast />
       </div>
     </LangContext.Provider>
   );
@@ -290,13 +314,150 @@ function UpdateToast() {
         </p>
       ) : (
         <>
-          <p>Aggiornamento{status.version ? ` ${status.version}` : ""} pronto <span aria-hidden="true">♥</span></p>
+          <p>Aggiornamento{status.version ? ` ${status.version}` : ""} pronto{!IS_SOCIAL && <span aria-hidden="true"> ♥</span>}</p>
           <button className="primary small" onClick={() => window.memoraAI?.installUpdate?.()}>
             Riavvia e aggiorna
           </button>
         </>
       )}
       <button className="icon update-toast-close" title="Più tardi" onClick={() => setDismissed(true)}>
+        <IconClose size={12} />
+      </button>
+    </div>
+  );
+}
+
+/* ─── Support panel ──────────────────────────────────────────────────────── */
+
+/**
+ * The line to the operator: pick a reason, write, send. Tickets land on the
+ * admin dashboard; replies come back as in-app notices, so there's nothing
+ * else to configure — no email, no account.
+ */
+function SupportPanel({ onClose }: { onClose: () => void }) {
+  const [category, setCategory] = useState<SupportCategory>("bug");
+  const [message, setMessage] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState("");
+
+  const send = async () => {
+    if (!message.trim()) return;
+    setState("sending");
+    try {
+      await sendSupport(category, message);
+      setState("sent");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "invio non riuscito");
+      setState("error");
+    }
+  };
+
+  return (
+    <div className="support-overlay" role="dialog" aria-modal="true" aria-label="Supporto" onClick={onClose}>
+      <div className="support-panel card-box" onClick={(e) => e.stopPropagation()}>
+        <div className="row spread">
+          <h3 style={{ margin: 0 }}>🛟 Supporto</h3>
+          <button className="icon" title="Chiudi" onClick={onClose}><IconClose size={13} /></button>
+        </div>
+
+        {state === "sent" ? (
+          <div className="support-sent">
+            <p><IconCheck size={15} /> <strong>Ricevuto!</strong></p>
+            <p className="hint">
+              Grazie — leggo tutto. Se serve una risposta, ti arriverà come
+              notifica qui nell'app.
+            </p>
+            <button className="primary" onClick={onClose}>Chiudi</button>
+          </div>
+        ) : (
+          <>
+            <p className="hint" style={{ margin: ".4rem 0 .7rem" }}>
+              Dimmi tutto: problemi, idee, segnalazioni. Rispondo con una
+              notifica direttamente nell'app.
+            </p>
+            <label className="field-label">Motivo del contatto</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as SupportCategory)}
+              style={{ width: "100%", marginBottom: ".6rem" }}
+            >
+              {SUPPORT_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={
+                category === "bug" ? "Cosa stavi facendo? Cosa ti aspettavi? Cosa è successo invece?"
+                : category === "idea" ? "Racconta la funzione dei tuoi sogni…"
+                : category === "content" ? "In quale gruppo? Cosa hai visto?"
+                : "Scrivi qui…"
+              }
+              rows={5}
+              style={{ width: "100%", resize: "vertical" }}
+            />
+            {state === "error" && <p className="error-text">Invio non riuscito: {error}. Controlla la connessione e riprova.</p>}
+            <div className="row" style={{ marginTop: ".7rem", justifyContent: "flex-end" }}>
+              <button className="ghost" onClick={onClose}>Annulla</button>
+              <button className="primary" disabled={!message.trim() || state === "sending"} onClick={send}>
+                {state === "sending" ? "Invio…" : "Invia"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Operator notices ───────────────────────────────────────────────────── */
+
+/**
+ * Announcements sent from the admin dashboard (event reminders, news).
+ * Checked shortly after launch and every 10 minutes; each notice is shown
+ * once, as a paper note (plus a native toast where the platform grants it —
+ * Electron does by default).
+ */
+function NoticesToast() {
+  const [queue, setQueue] = useState<Notice[]>([]);
+
+  useEffect(() => {
+    let stop = false;
+    const check = () => {
+      fetchUnseenNotices()
+        .then((ns) => {
+          if (stop || ns.length === 0) return;
+          setQueue(ns);
+          try {
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              new Notification(ns[0].title, { body: ns[0].body });
+            }
+          } catch { /* native toast unavailable — the in-app note still shows */ }
+        })
+        .catch(() => { /* offline — next interval retries */ });
+    };
+    const t = setTimeout(check, 6000);
+    const id = setInterval(check, 10 * 60_000);
+    return () => { stop = true; clearTimeout(t); clearInterval(id); };
+  }, []);
+
+  const notice = queue[0];
+  if (!notice) return null;
+
+  const dismiss = () => {
+    markNoticeSeen(notice.id);
+    setQueue((q) => q.slice(1));
+  };
+
+  return (
+    <div className="update-toast notice-toast" role="status">
+      <span className="update-toast-orn" aria-hidden="true">📣</span>
+      <div>
+        <p><strong>{notice.title}</strong></p>
+        {notice.body && <p className="notice-body">{notice.body}</p>}
+      </div>
+      <button className="icon update-toast-close" title="Ok" onClick={dismiss}>
         <IconClose size={12} />
       </button>
     </div>
@@ -319,11 +480,14 @@ function HeroStrip({ decks, events }: { decks: Deck[]; events: ReviewEvent[] }) 
       <h1 className="hero-headline">
         Ready when<br /><em>you are.</em>
       </h1>
-      {/* A note left between the pages: taped-on scrap, sealed with wax. */}
-      <div className="hero-note" aria-label="You are allowed to want more btw.">
-        <p>You are allowed to want more btw.</p>
-        <div className="wax-seal" aria-hidden="true"><span>♥</span></div>
-      </div>
+      {/* A note left between the pages: taped-on scrap, sealed with wax.
+          Private edition only — the social build keeps the hero clean. */}
+      {!IS_SOCIAL && (
+        <div className="hero-note" aria-label="You are allowed to want more btw.">
+          <p>You are allowed to want more btw.</p>
+          <div className="wax-seal" aria-hidden="true"><span>♥</span></div>
+        </div>
+      )}
       <div className="hero-stats">
         <div className="hero-stat">
           <span className="hero-stat-n">{totalDue}</span>
@@ -371,8 +535,9 @@ function DeckList(props: {
         <button type="submit" className="primary">Add deck</button>
       </form>
 
-      {/* The bacheca: today's song pinned among the decks. */}
-      <SongWidget />
+      {/* The bacheca: today's song pinned among the decks. The dedications are
+          hers alone — the social edition ships without the song of the day. */}
+      {!IS_SOCIAL && <SongWidget />}
 
       {props.decks.length === 0 && (
         <div className="empty-state">

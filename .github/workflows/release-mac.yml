@@ -1,0 +1,64 @@
+# macOS release — run manually from the Actions tab.
+#
+# DMG/ZIP for macOS can only be built on macOS, so this workflow runs on a
+# GitHub macOS runner and publishes the artifacts to the same GitHub release
+# that the local Windows `npm run release` / `release:social` creates (same
+# version = same release; electron-updater picks its platform's files).
+#
+# Publishing to W1kicartel/memora-social needs a token that can write to that
+# repo: add a classic PAT with `repo` scope as the `GH_TOKEN` repository
+# secret. Without it, the private edition still publishes (github.token covers
+# this repo) but the social step will fail with a 404.
+name: release-mac
+
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: Which edition to build and publish for macOS
+        type: choice
+        options:
+          - both
+          - private
+          - social
+        default: both
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Build & publish Memora (private) for macOS
+        if: ${{ inputs.edition == 'both' || inputs.edition == 'private' }}
+        run: |
+          npm run build
+          npx electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          # With no Apple Developer ID certificate, electron-builder falls back
+          # to ad-hoc signing: the app runs (friends approve it once in System
+          # Settings → Privacy & Security), but macOS auto-update stays off
+          # until real signing is configured. When you have a certificate,
+          # add the CSC_LINK / CSC_KEY_PASSWORD secrets and uncomment:
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Build & publish Memora Social for macOS
+        if: ${{ inputs.edition == 'both' || inputs.edition == 'social' }}
+        run: |
+          npm run build:social
+          npx electron-builder --mac --config electron-builder.social.json --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

@@ -2,6 +2,9 @@ node_modules
 dist
 dist-ssr
 release
+release-social
+release-social-test
+release-test-private
 *.local
 .DS_Store
 .vscode/*
@@ -16,6 +19,9 @@ build/signing
 # Generated media artifacts (promo videos, soundtrack render)
 *.mp4
 carillon.wav
+pitch-tune.wav
+frames/
+frames-pitch/
 promo-filter.txt
 .playwright-mcp
 pink-*.png

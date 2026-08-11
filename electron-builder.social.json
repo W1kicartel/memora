@@ -1,0 +1,56 @@
+{
+  "appId": "app.memora.social",
+  "productName": "Memora Social",
+  "extraMetadata": {
+    "memoraEdition": "social"
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "W1kicartel",
+    "repo": "memora-social",
+    "releaseType": "release"
+  },
+  "directories": {
+    "output": "release-social"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "win": {
+    "icon": "build/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "createDesktopShortcut": true
+  },
+  "mac": {
+    "icon": "build/icon.png",
+    "category": "public.app-category.education",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": [
+          "arm64",
+          "x64"
+        ]
+      },
+      {
+        "target": "zip",
+        "arch": [
+          "arm64",
+          "x64"
+        ]
+      }
+    ]
+  }
+}

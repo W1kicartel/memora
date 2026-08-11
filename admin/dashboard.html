@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memora — Admin</title>
+<style>
+  :root {
+    --bg: #fad2e1; --paper: #fff6fa; --elevated: #fde9f1; --ink: #46203a;
+    --muted: #8a5b76; --subtle: #bb8aa4; --accent: #e04f8f; --violet: #6a5acd;
+    --ok: #2b8a5c; --err: #c0392b; --border: rgba(70,32,58,.16);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: Georgia, serif; color: var(--ink);
+    background: linear-gradient(170deg, #fad2e1, #f5b8cf); min-height: 100vh;
+  }
+  header { padding: 1.2rem 2rem .6rem; display: flex; align-items: baseline; gap: .8rem; }
+  header h1 { margin: 0; font-size: 1.5rem; }
+  header h1 em { color: var(--accent); }
+  header .tag { color: var(--muted); font-style: italic; font-size: .9rem; }
+  main { padding: 0 2rem 3rem; max-width: 1100px; margin: 0 auto; }
+  .card {
+    background: var(--paper); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem 1.2rem; margin: 1rem 0;
+    box-shadow: 0 1px 2px rgba(120,40,80,.12), 0 2px 10px rgba(120,40,80,.08);
+  }
+  h2 { font-size: 1.05rem; margin: .2rem 0 .7rem; }
+  input, textarea, select, button {
+    font-family: inherit; font-size: .92rem; color: var(--ink);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: .5rem .7rem; background: #fff;
+  }
+  textarea { width: 100%; resize: vertical; }
+  button { cursor: pointer; background: var(--elevated); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+  button.danger { color: var(--err); }
+  button:disabled { opacity: .5; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 400; font-style: italic; font-size: .8rem; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--elevated); }
+  .chip {
+    display: inline-block; padding: .12rem .55rem; margin: .1rem;
+    border: 1px solid var(--border); border-radius: 999px;
+    font-size: .78rem; background: var(--elevated);
+  }
+  .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .muted { color: var(--muted); font-size: .82rem; }
+  .msg { padding: .4rem .6rem; border-bottom: 1px dashed var(--border); font-size: .88rem; }
+  .msg .who { color: var(--accent); font-weight: 700; }
+  .msg .when { color: var(--subtle); font-size: .75rem; }
+  .msg img { max-width: 160px; max-height: 120px; border-radius: 8px; display: block; margin-top: .25rem; }
+  .item { padding: .3rem .6rem; font-size: .86rem; border-bottom: 1px dashed var(--border); }
+  .kind { font-size: .68rem; letter-spacing: .06em; color: var(--violet); margin-right: .4rem; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+  #detail { display: none; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+  .scroll { max-height: 340px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  label.pick { display: block; font-size: .86rem; padding: .15rem 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Me<em>mo</em>ra · Admin</h1>
+  <span class="tag">supervisione gruppi &amp; notifiche</span>
+</header>
+<main>
+
+  <section class="card" id="auth">
+    <h2>🔑 Chiave admin</h2>
+    <div class="row">
+      <input id="adminKey" type="password" placeholder="chiave admin…" style="flex:1; max-width:420px">
+      <button class="primary" onclick="saveKey()">Entra</button>
+      <span id="authState" class="muted"></span>
+    </div>
+    <p class="muted">La chiave resta solo in questo browser. Vedi qui solo i gruppi con sync live attivo — i gruppi locali non passano mai dal server.</p>
+  </section>
+
+  <section class="card" id="groupsCard" style="display:none">
+    <h2>👥 Gruppi sincronizzati</h2>
+    <table id="groupsTable">
+      <thead><tr><th>Gruppo</th><th>Membri</th><th>Peso</th><th>Ultimo aggiornamento</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="muted" id="groupsEmpty" style="display:none">Nessun gruppo sincronizzato ancora.</p>
+  </section>
+
+  <section class="card" id="detail">
+    <h2 id="detailTitle"></h2>
+    <div id="detailMembers"></div>
+    <div class="cols" style="margin-top:.8rem">
+      <div>
+        <h2>💬 Chat</h2>
+        <div class="scroll" id="detailChat"></div>
+      </div>
+      <div>
+        <h2>📁 Materiali &amp; 📅 Eventi</h2>
+        <div class="scroll" id="detailItems"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="supportCard" style="display:none">
+    <h2>🛟 Messaggi di supporto</h2>
+    <table id="supportTable">
+      <thead><tr><th>Quando</th><th>Chi</th><th>Motivo</th><th>Messaggio</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="muted" id="supportEmpty" style="display:none">Nessun messaggio — per ora tutto fila liscio.</p>
+  </section>
+
+  <section class="card" id="noticeCard" style="display:none">
+    <h2>📣 Invia una notifica</h2>
+    <div class="row" style="margin-bottom:.5rem">
+      <input id="nTitle" placeholder="Titolo (es. Sessione di gruppo venerdì!)" style="flex:1">
+    </div>
+    <textarea id="nBody" rows="3" placeholder="Testo della notifica…"></textarea>
+    <div class="row" style="margin:.6rem 0">
+      <select id="nTargetType" onchange="renderTargetPick()">
+        <option value="all">A tutti</option>
+        <option value="groups">A gruppi specifici</option>
+        <option value="members">A membri specifici</option>
+      </select>
+      <button class="primary" onclick="sendNotice()">Invia</button>
+      <span id="sendState" class="muted"></span>
+    </div>
+    <div id="targetPick"></div>
+  </section>
+
+  <section class="card" id="sentCard" style="display:none">
+    <h2>🗂 Notifiche inviate</h2>
+    <table id="sentTable">
+      <thead><tr><th>Quando</th><th>Titolo</th><th>Destinatari</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+</main>
+<script>
+const URL_BASE = "https://dbuykuhtajbaxgbeuuch.supabase.co";
+const ANON = "sb_publishable_kxK1Q9pAeCzFRPiP3EMuEQ_sL4Yq-qE";
+let GROUPS = [];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function rpc(fn, args) {
+  const res = await fetch(`${URL_BASE}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: ANON, "content-type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { msg = (await res.json()).message || msg; } catch {}
+    throw new Error(msg);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+const key = () => localStorage.getItem("memora-admin-key") || "";
+
+function saveKey() {
+  localStorage.setItem("memora-admin-key", $("adminKey").value.trim());
+  boot();
+}
+
+async function boot() {
+  if (!key()) return;
+  $("adminKey").value = key();
+  $("authState").textContent = "verifico…";
+  try {
+    GROUPS = await rpc("admin_list_groups", { p_key: key() }) || [];
+    $("authState").innerHTML = '<span class="ok">✓ collegato</span>';
+    $("groupsCard").style.display = $("noticeCard").style.display = $("sentCard").style.display = $("supportCard").style.display = "block";
+    renderGroups(); renderTargetPick(); loadSent(); loadSupport();
+  } catch (e) {
+    $("authState").innerHTML = '<span class="err">✗ ' + esc(e.message) + "</span>";
+  }
+}
+
+function renderGroups() {
+  const tb = $("groupsTable").querySelector("tbody");
+  tb.innerHTML = GROUPS.map((g, i) => `
+    <tr class="clickable" onclick="openGroup(${i})">
+      <td><strong>${esc(g.name)}</strong></td>
+      <td>${(g.members || []).map((m) => `<span class="chip">${esc(m.name)}${m.role === "owner" ? " ★" : ""}</span>`).join("")}</td>
+      <td class="muted">${(g.bytes / 1024).toFixed(1)} KB</td>
+      <td class="muted">${new Date(g.updated_at).toLocaleString()}</td>
+    </tr>`).join("");
+  $("groupsEmpty").style.display = GROUPS.length ? "none" : "block";
+}
+
+async function openGroup(i) {
+  const g = GROUPS[i];
+  const p = await rpc("admin_get_group", { p_key: key(), p_sync_id: g.sync_id });
+  if (!p) return;
+  $("detail").style.display = "block";
+  $("detailTitle").textContent = `🔍 ${p.name}`;
+  $("detailMembers").innerHTML = (p.members || [])
+    .map((m) => `<span class="chip">${esc(m.name)}${m.role === "owner" ? " ★" : ""} <span class="muted">(${esc(m.id)})</span></span>`).join("");
+  $("detailChat").innerHTML = (p.chat || []).map((m) => `
+    <div class="msg"><span class="who">${esc(m.author)}</span>
+      <span class="when">${new Date(m.at).toLocaleString()}</span><br>
+      ${m.media ? `<img src="${esc(m.media)}" alt="${esc(m.text)}">` : esc(m.text)}
+    </div>`).join("") || '<p class="muted" style="padding:.5rem">Chat vuota.</p>';
+  const folders = (p.folders || []).flatMap((f) =>
+    f.items.map((it) => `<div class="item"><span class="kind">${esc(it.kind.toUpperCase())}</span>
+      <strong>${esc(it.title)}</strong> <span class="muted">· ${esc(f.name)} · ${esc(it.addedBy)}</span>
+      ${it.kind !== "deck" ? `<div class="muted">${esc(it.content.slice(0, 200))}</div>` : ""}</div>`));
+  const events = (p.events || []).map((ev) => `<div class="item"><span class="kind">EVENTO</span>
+    <strong>${esc(ev.title)}</strong> <span class="muted">· ${esc(ev.date)}${ev.time ? " " + esc(ev.time) : ""}${ev.location ? " · " + esc(ev.location) : ""} · ${esc(ev.createdBy)}</span></div>`);
+  $("detailItems").innerHTML = [...events, ...folders].join("") || '<p class="muted" style="padding:.5rem">Niente ancora.</p>';
+  $("detail").scrollIntoView({ behavior: "smooth" });
+}
+
+const EXTRA_MEMBERS = new Map(); // members known from support tickets, not groups
+
+function renderTargetPick(preselect) {
+  const type = $("nTargetType").value;
+  const box = $("targetPick");
+  if (type === "all") { box.innerHTML = ""; return; }
+  if (type === "groups") {
+    box.innerHTML = GROUPS.map((g) =>
+      `<label class="pick"><input type="checkbox" class="pickG" value="${esc(g.sync_id)}"> ${esc(g.name)}</label>`).join("")
+      || '<p class="muted">Nessun gruppo sincronizzato.</p>';
+  } else {
+    const seen = new Map(EXTRA_MEMBERS);
+    for (const g of GROUPS) for (const m of g.members || []) {
+      if (!seen.has(m.id)) seen.set(m.id, `${m.name} (${g.name})`);
+    }
+    box.innerHTML = [...seen.entries()].map(([id, label]) =>
+      `<label class="pick"><input type="checkbox" class="pickM" value="${esc(id)}" ${preselect === id ? "checked" : ""}> ${esc(label)}</label>`).join("")
+      || '<p class="muted">Nessun membro noto.</p>';
+  }
+}
+
+/* ── support inbox ── */
+
+const CAT_LABELS = {
+  bug: "🐞 Bug", idea: "💡 Idea", question: "❓ Aiuto",
+  content: "🚩 Contenuti", data: "💾 Dati", other: "✉️ Altro",
+};
+
+async function loadSupport() {
+  const rows = await rpc("admin_list_support", { p_key: key() }) || [];
+  $("supportTable").querySelector("tbody").innerHTML = rows.map((t) => `
+    <tr>
+      <td class="muted">${new Date(t.created_at).toLocaleString()}</td>
+      <td>${esc(t.member_name || "anonimo")}<div class="muted">${esc(t.edition)} ${esc(t.app_version)}</div></td>
+      <td><span class="chip">${CAT_LABELS[t.category] || esc(t.category)}</span></td>
+      <td style="max-width:380px">${esc(t.message)}</td>
+      <td style="white-space:nowrap">
+        ${t.member_id ? `<button onclick="replyTo('${esc(t.member_id)}','${esc(t.member_name || "anonimo")}')">Rispondi</button>` : ""}
+        <button class="danger" onclick="delSupport('${t.id}')">Elimina</button>
+      </td>
+    </tr>`).join("");
+  $("supportEmpty").style.display = rows.length ? "none" : "block";
+}
+
+function replyTo(memberId, name) {
+  if (!EXTRA_MEMBERS.has(memberId)) EXTRA_MEMBERS.set(memberId, `${name} (da supporto)`);
+  $("nTargetType").value = "members";
+  renderTargetPick(memberId);
+  $("nTitle").value = `Risposta al tuo messaggio`;
+  $("noticeCard").scrollIntoView({ behavior: "smooth" });
+  $("nBody").focus();
+}
+
+async function delSupport(id) {
+  if (!confirm("Eliminare questo messaggio di supporto?")) return;
+  await rpc("admin_delete_support", { p_key: key(), p_id: id });
+  loadSupport();
+}
+
+async function sendNotice() {
+  const type = $("nTargetType").value;
+  let target = { type: "all" };
+  if (type === "groups") {
+    const ids = [...document.querySelectorAll(".pickG:checked")].map((c) => c.value);
+    if (!ids.length) { $("sendState").textContent = "seleziona almeno un gruppo"; return; }
+    target = { type: "groups", syncIds: ids };
+  } else if (type === "members") {
+    const ids = [...document.querySelectorAll(".pickM:checked")].map((c) => c.value);
+    if (!ids.length) { $("sendState").textContent = "seleziona almeno un membro"; return; }
+    target = { type: "members", ids };
+  }
+  $("sendState").textContent = "invio…";
+  try {
+    await rpc("admin_send_notice", {
+      p_key: key(), p_title: $("nTitle").value, p_body: $("nBody").value, p_target: target,
+    });
+    $("sendState").innerHTML = '<span class="ok">✓ inviata — le app la ritirano entro ~10 minuti</span>';
+    $("nTitle").value = ""; $("nBody").value = "";
+    loadSent();
+  } catch (e) {
+    $("sendState").innerHTML = '<span class="err">✗ ' + esc(e.message) + "</span>";
+  }
+}
+
+function describeTarget(t) {
+  if (!t || t.type === "all") return "tutti";
+  if (t.type === "groups") return `${(t.syncIds || []).length} gruppi`;
+  return `${(t.ids || []).length} membri`;
+}
+
+async function loadSent() {
+  const rows = await rpc("admin_list_notices", { p_key: key() }) || [];
+  $("sentTable").querySelector("tbody").innerHTML = rows.map((n) => `
+    <tr>
+      <td class="muted">${new Date(n.created_at).toLocaleString()}</td>
+      <td><strong>${esc(n.title)}</strong><div class="muted">${esc(n.body)}</div></td>
+      <td class="muted">${describeTarget(n.target)}</td>
+      <td><button class="danger" onclick="delNotice('${n.id}')">Elimina</button></td>
+    </tr>`).join("");
+}
+
+async function delNotice(id) {
+  if (!confirm("Eliminare questa notifica? Chi non l'ha ancora vista non la riceverà.")) return;
+  await rpc("admin_delete_notice", { p_key: key(), p_id: id });
+  loadSent();
+}
+
+boot();
+</script>
+</body>
+</html>

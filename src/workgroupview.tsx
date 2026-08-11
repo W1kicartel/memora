@@ -516,7 +516,7 @@ function LeaderboardBox({ group, profile }: { group: Workgroup; profile: Profile
  * Chat messages live in the group snapshot like folders and events: they
  * merge by id and travel with invite links and bundles. It's a message
  * board, not a realtime line — members see new messages when snapshots are
- * exchanged. GIF/sticker search is Tenor-powered (see gifs.ts); without a
+ * exchanged. GIF/sticker search is KLIPY-powered (see gifs.ts); without a
  * key the picker still accepts a pasted image URL.
  */
 function ChatBox({
@@ -654,7 +654,7 @@ function GifPicker({ kind, onPick }: { kind: "gif" | "sticker"; onPick: (g: GifR
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={kind === "sticker" ? "Search meme stickers on Tenor…" : "Search GIFs on Tenor…"}
+            placeholder={kind === "sticker" ? "Search meme stickers…" : "Search GIFs…"}
             autoFocus
           />
           {error && <p className="error-text">{error}</p>}
@@ -666,12 +666,14 @@ function GifPicker({ kind, onPick }: { kind: "gif" | "sticker"; onPick: (g: GifR
             ))}
           </div>
           {results.length === 0 && !error && <p className="hint">Searching…</p>}
+          {/* Required attribution per KLIPY's integration terms. */}
+          <p className="hint wg-gif-attribution">powered by KLIPY</p>
         </>
       ) : (
         <>
           <p className="hint">
             GIF search isn't configured in this build (the app owner adds a free
-            Tenor key — see the README). You can still paste a direct image link:
+            KLIPY key — see the README). You can still paste a direct image link:
           </p>
           <div className="row">
             <input

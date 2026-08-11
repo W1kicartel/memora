@@ -59,7 +59,7 @@ actually works:
 **👥 Work Groups**
 - Create a study group and invite people with a **single link** — paste it, you're in
 - **Live sync** (opt-in per group): chat, events and the leaderboard flow to every member's app in real time through a relay backend; the capability travels inside the invite link, no accounts
-- **Group chat** with GIFs and meme stickers (Tenor-powered), merging across members like everything else
+- **Group chat** with GIFs and meme stickers (KLIPY-powered), merging across members like everything else
 - **Group events** on a mini calendar — one click adds them to Google Calendar (via the member's own Google login) or downloads an .ics for Apple Calendar/Outlook
 - **Monthly leaderboard**: study points and constancy across *any* subject — sealed during the month, podium revealed on the 1st
 
@@ -126,17 +126,21 @@ own channel.
 | `npm run package:social` | build the social Windows installer (`release-social/`) |
 | `npm run release:social` | build + publish a social release to GitHub |
 
-### GIF & sticker search (Tenor key)
+### GIF & sticker search (KLIPY key)
 
-The group chat searches GIFs and meme stickers through the
-[Tenor API](https://developers.google.com/tenor) — the same engine WhatsApp
-and Discord use. Tenor keys are free and made to be embedded in client apps:
+The group chat searches GIFs and meme stickers through
+[KLIPY](https://klipy.com/developers) — built by ex-Tenor engineers with a
+Tenor-compatible API (Google shut the Tenor API down on 2026-06-30, which is
+why apps like Discord and WhatsApp migrated too). Keys are free and made to
+be embedded in client apps:
 
-1. In [Google Cloud Console](https://console.cloud.google.com) create (or pick) a project, enable **Tenor API**, and create an **API key**.
-2. Add it to a `.env` file in the repo root: `VITE_TENOR_KEY=your-key`
+1. Sign up at the [KLIPY Partner Panel](https://partner.klipy.com), go to **API Keys** and create your platform.
+2. Add the key to a `.env` file in the repo root: `VITE_KLIPY_KEY=your-key`
 3. Rebuild. Every packaged copy now ships with working GIF/sticker search.
 
-Without a key the picker still lets people paste a direct image URL.
+Test keys are limited to 100 requests/hour — request production access from
+the same panel before sharing the app widely. Without a key the picker still
+lets people paste a direct image URL.
 
 ### The AI engine
 

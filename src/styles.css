@@ -3173,3 +3173,6 @@ body::before, body::after { display: none; }
   display: flex; align-items: center; justify-content: center; gap: .4rem;
   color: var(--ok);
 }
+
+/* ── KLIPY attribution (required by their integration terms) ── */
+.wg-gif-attribution { text-align: right; font-size: .68rem; margin: .35rem 0 0; opacity: .75; }

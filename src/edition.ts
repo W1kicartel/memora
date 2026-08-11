@@ -15,4 +15,6 @@
 
 export const IS_SOCIAL = import.meta.env.VITE_EDITION === "social";
 
-export const APP_NAME = IS_SOCIAL ? "Memora Social" : "Memora";
+/** One brand for both editions: the app is Memora, full stop. "Social" is
+ *  only the internal edition name (build configs, update channel). */
+export const APP_NAME = "Memora";

@@ -289,7 +289,7 @@ export function App() {
 
         <footer className="footer">
           {IS_SOCIAL
-            ? <>Memora Social · studiare insieme è meglio · MIT License</>
+            ? <>Memora · studiare insieme è meglio · MIT License</>
             : <>Memora · fatto con <span className="footer-heart" aria-hidden="true">♥</span> per te · MIT License</>}
         </footer>
 

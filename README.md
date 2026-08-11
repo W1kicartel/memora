@@ -104,20 +104,23 @@ npm run dev        # dev server at http://localhost:5173
 
 ### Two editions, one codebase
 
-Memora ships in two flavours built from the same source:
+Memora ships in two flavours built from the same source — both branded simply
+**Memora**:
 
-- **Memora** (default) — the personal edition, dedications and rewards included.
-- **Memora Social** — the same study workspace for friends: decks, dashboard,
+- **private** (default) — the personal edition, dedications and rewards included.
+- **social** — the same study workspace for friends: decks, dashboard,
   student life, AI and **fully compatible study groups** (invite links work
   across editions), but without the song of the day and the rewards shop.
 
 The flag is baked in at build time: `vite build --mode social` reads
 `.env.social` (`VITE_EDITION=social`) for the renderer, and
 `electron-builder.social.json` injects `memoraEdition` into `package.json` for
-the Electron main process. Different `appId`/`productName` mean both apps
-install side-by-side with separate data; the social edition publishes releases
-to its own GitHub repo (`memora-social`), so each edition auto-updates on its
-own channel.
+the Electron main process. Distinct `appId`, package name (`memora-social`),
+install folder and userData path keep the two editions fully separate even on
+the same machine; artifacts carry a `-social-` suffix so downloads are
+tellable apart. The social edition publishes releases to its own GitHub repo
+(`memora-social`), so each edition auto-updates on its own channel. macOS
+social builds include a **.pkg** one-click installer alongside dmg/zip.
 
 | Command | What it does |
 | --- | --- |

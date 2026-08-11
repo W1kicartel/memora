@@ -17,8 +17,15 @@ try {
   EDITION = require(path.join(__dirname, '..', 'package.json')).memoraEdition || 'private';
 } catch { /* dev tree without package.json is impossible, but stay safe */ }
 const IS_SOCIAL = EDITION === 'social';
-const APP_NAME = IS_SOCIAL ? 'Memora Social' : 'Memora';
+// One brand: both editions present themselves as "Memora".
+const APP_NAME = 'Memora';
 const APP_ID = IS_SOCIAL ? 'app.memora.social' : 'app.memora.desktop';
+
+// Same display name, separate data: park the social edition's userData in its
+// own folder so a machine with both editions never mixes their storage.
+if (IS_SOCIAL) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'memora-social'));
+}
 
 /* ════════════════════════════════════════════════════════════════════════
    Local AI bootstrap — Ollama installs itself on first launch.

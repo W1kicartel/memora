@@ -1,9 +1,11 @@
 {
   "appId": "app.memora.social",
-  "productName": "Memora Social",
+  "productName": "Memora",
   "extraMetadata": {
+    "name": "memora-social",
     "memoraEdition": "social"
   },
+  "artifactName": "Memora-social-${version}-${arch}.${ext}",
   "publish": {
     "provider": "github",
     "owner": "W1kicartel",
@@ -37,6 +39,13 @@
     "icon": "build/icon.png",
     "category": "public.app-category.education",
     "target": [
+      {
+        "target": "pkg",
+        "arch": [
+          "arm64",
+          "x64"
+        ]
+      },
       {
         "target": "dmg",
         "arch": [

@@ -230,6 +230,8 @@ function GroupDetail({
   const [folderName, setFolderName] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const [syncState, setSyncState] = useState<SyncState>("off");
+  // One thing at a time: the group's areas live behind sub-tabs.
+  const [tab, setTab] = useState<"chat" | "events" | "materials" | "board" | "members">("chat");
 
   /* ── live sync ─────────────────────────────────────────────────────────
      Channel per syncId; refs keep the latest group/onChange visible to the
@@ -350,6 +352,18 @@ function GroupDetail({
     setFolderName("");
   };
 
+  const itemCount = group.folders.reduce((n, f) => n + f.items.length, 0);
+  const eventCount = (group.events ?? []).length;
+  const shownMembers = group.members.slice(0, 5);
+
+  const TABS = [
+    { id: "chat" as const, label: "💬 Chat" },
+    { id: "events" as const, label: eventCount ? `📅 Events (${eventCount})` : "📅 Events" },
+    { id: "materials" as const, label: itemCount ? `📁 Materials (${itemCount})` : "📁 Materials" },
+    { id: "board" as const, label: "🏆 Leaderboard" },
+    { id: "members" as const, label: `👥 Members (${group.members.length})` },
+  ];
+
   return (
     <>
       <div className="row spread">
@@ -365,11 +379,92 @@ function GroupDetail({
         </button>
       </div>
 
-      <h2>{group.name}</h2>
-      {group.description && <p className="hint">{group.description}</p>}
+      {/* Compact header: identity + the two things you always need — who's
+          here (avatar stack) and the invite. Everything else lives in tabs. */}
+      <div className="wg-head">
+        <div className="wg-head-id">
+          <h2>{group.name}</h2>
+          {group.description && <p className="hint">{group.description}</p>}
+        </div>
+        <div className="wg-head-side">
+          <button className="wg-avatar-stack" title="Members" onClick={() => setTab("members")}>
+            {shownMembers.map((m) =>
+              m.avatar
+                ? <img key={m.id} className="avatar-mini" src={m.avatar} alt={m.name} />
+                : <span key={m.id} className="avatar-mini avatar-letter">{(m.name[0] ?? "?").toUpperCase()}</span>
+            )}
+            {group.members.length > shownMembers.length && (
+              <span className="avatar-mini avatar-letter">+{group.members.length - shownMembers.length}</span>
+            )}
+          </button>
+          {group.syncId && (
+            <span className={`sync-badge sync-${syncState}`} title="Live sync">
+              <span className="sync-dot" aria-hidden="true" />
+              {syncState === "live" ? "live" : syncState === "connecting" ? "…" : "off"}
+            </span>
+          )}
+          <button className="primary small" onClick={copyInvite}
+            style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
+            {copied ? <><IconCheck size={13} /> Copied!</> : "Copy invite link"}
+          </button>
+        </div>
+      </div>
 
-      <section className="card-box">
-        <div className="row spread">
+      <div className="tabs wg-tabs">
+        {TABS.map((t) => (
+          <button key={t.id} className={tab === t.id ? "tab on" : "tab"} onClick={() => setTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "chat" && <ChatBox group={group} profile={profile} onChange={onChange} />}
+
+      {tab === "events" && <EventsBox group={group} profile={profile} onChange={onChange} />}
+
+      {tab === "materials" && (
+        <>
+          <section className="card-box">
+            <div className="row">
+              <input
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                placeholder="New shared folder (e.g. Dispense, Esercizi)…"
+                onKeyDown={(e) => e.key === "Enter" && addFolder()}
+              />
+              <button className="primary" disabled={!folderName.trim()} onClick={addFolder}>
+                Add folder
+              </button>
+            </div>
+            {group.folders.length === 0 && (
+              <p className="hint" style={{ marginTop: ".5rem" }}>
+                Folders hold what the group shares: notes, links and whole decks.
+              </p>
+            )}
+          </section>
+          {group.folders.map((folder) => (
+            <FolderBox
+              key={folder.id}
+              folder={folder}
+              decks={decks}
+              profile={profile}
+              onChange={(f) =>
+                onChange({ ...group, folders: group.folders.map((x) => (x.id === f.id ? f : x)) })
+              }
+              onDelete={() =>
+                window.confirm(`Delete folder "${folder.name}" from your copy?`) &&
+                onChange({ ...group, folders: group.folders.filter((x) => x.id !== folder.id) })
+              }
+              onImportDeck={onImportDeck}
+            />
+          ))}
+        </>
+      )}
+
+      {tab === "board" && <LeaderboardBox group={group} profile={profile} />}
+
+      {tab === "members" && (
+        <section className="card-box">
           <div className="wg-members">
             {group.members.map((m) => (
               <span key={m.id} className={m.id === profile.id ? "member-chip me" : "member-chip"}>
@@ -380,11 +475,8 @@ function GroupDetail({
               </span>
             ))}
           </div>
-          <div className="row" style={{ gap: ".4rem" }}>
-            <button className="primary small" onClick={copyInvite}
-              style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
-              {copied ? <><IconCheck size={13} /> Copied!</> : "Copy invite link"}
-            </button>
+
+          <div className="row" style={{ marginTop: ".8rem", gap: ".4rem" }}>
             <button className="ghost small" title="Export the group as a file"
               onClick={exportBundle}
               style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
@@ -402,69 +494,33 @@ function GroupDetail({
                 if (f) void importBundle(f);
               }} />
           </div>
-        </div>
-        <div className="row" style={{ marginTop: ".6rem", alignItems: "center", gap: ".6rem" }}>
-          {group.syncId ? (
-            <span className={`sync-badge sync-${syncState}`}>
-              <span className="sync-dot" aria-hidden="true" />
-              {syncState === "live" ? "Live sync on — changes flow by themselves"
-                : syncState === "connecting" ? "Connecting…"
-                : syncState === "error" ? "Sync offline — retrying; links still work"
-                : "Sync off"}
-            </span>
-          ) : (
-            <>
-              <button className="ghost small" onClick={enableSync}>⚡ Turn on live sync</button>
-              <span className="hint" style={{ fontSize: ".78rem" }}>
-                chat, events and the leaderboard update on every member's app automatically
+
+          <div className="row" style={{ marginTop: ".7rem", alignItems: "center", gap: ".6rem" }}>
+            {group.syncId ? (
+              <span className={`sync-badge sync-${syncState}`}>
+                <span className="sync-dot" aria-hidden="true" />
+                {syncState === "live" ? "Live sync on — changes flow by themselves"
+                  : syncState === "connecting" ? "Connecting…"
+                  : syncState === "error" ? "Sync offline — retrying; links still work"
+                  : "Sync off"}
               </span>
-            </>
-          )}
-        </div>
-        <p className="wg-sync-hint">
-          Share the invite link to let people join.{" "}
-          {group.syncId
-            ? "New members get live sync automatically — it ships inside the link."
-            : "Without live sync, content merges when members exchange links or bundle files."}
-        </p>
-      </section>
-
-      <LeaderboardBox group={group} profile={profile} />
-
-      <ChatBox group={group} profile={profile} onChange={onChange} />
-
-      <EventsBox group={group} profile={profile} onChange={onChange} />
-
-      <section className="card-box">
-        <div className="row">
-          <input
-            value={folderName}
-            onChange={(e) => setFolderName(e.target.value)}
-            placeholder="New shared folder (e.g. Dispense, Esercizi)…"
-            onKeyDown={(e) => e.key === "Enter" && addFolder()}
-          />
-          <button className="primary" disabled={!folderName.trim()} onClick={addFolder}>
-            Add folder
-          </button>
-        </div>
-      </section>
-
-      {group.folders.map((folder) => (
-        <FolderBox
-          key={folder.id}
-          folder={folder}
-          decks={decks}
-          profile={profile}
-          onChange={(f) =>
-            onChange({ ...group, folders: group.folders.map((x) => (x.id === f.id ? f : x)) })
-          }
-          onDelete={() =>
-            window.confirm(`Delete folder "${folder.name}" from your copy?`) &&
-            onChange({ ...group, folders: group.folders.filter((x) => x.id !== folder.id) })
-          }
-          onImportDeck={onImportDeck}
-        />
-      ))}
+            ) : (
+              <>
+                <button className="ghost small" onClick={enableSync}>⚡ Turn on live sync</button>
+                <span className="hint" style={{ fontSize: ".78rem" }}>
+                  chat, events and the leaderboard update on every member's app automatically
+                </span>
+              </>
+            )}
+          </div>
+          <p className="wg-sync-hint">
+            Share the invite link to let people join.{" "}
+            {group.syncId
+              ? "New members get live sync automatically — it ships inside the link."
+              : "Without live sync, content merges when members exchange links or bundle files."}
+          </p>
+        </section>
+      )}
     </>
   );
 }

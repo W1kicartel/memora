@@ -17,6 +17,7 @@ import { generateDemoHistory } from "./demo";
 import { LangContext, translate, useT, LANGS, type Lang, type TFn } from "./i18n";
 import { loadProfile, saveProfile } from "./workgroup";
 import { fileToAvatar } from "./avatar";
+import { updateLearnerProfile } from "./learner";
 import {
   IconDecks, IconProgress, IconLife, IconUsers, IconAI, IconSettings,
   IconArrowLeft, IconTrash, IconUpload, IconDownload, IconCheck, IconKey,
@@ -76,6 +77,9 @@ export function App() {
 
   useEffect(() => saveDecks(decks), [decks]);
   useEffect(() => saveEvents(events), [events]);
+  /* Adaptive AI: refresh the learner profile whenever study data changes, so
+     every prompt (local or Claude) calibrates on weak/strong topics. */
+  useEffect(() => updateLearnerProfile(decks, events), [decks, events]);
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveLife(life), [life]);
 

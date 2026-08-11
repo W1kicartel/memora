@@ -14,9 +14,20 @@ import {
 } from "./engine";
 
 import { ollamaChat, DEFAULT_OLLAMA_MODEL, OLLAMA_FALLBACK_MODEL, type OllamaMsg } from "./ollama";
+import { learnerDirective } from "./learner";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
+
+/**
+ * Append the adaptive learner profile (learner.ts) to a system prompt: the
+ * engine calibrates on the user's own weak/strong topics, so answers keep
+ * getting better the more they study — locally, with either provider.
+ */
+function withLearner(system: string): string {
+  const profile = learnerDirective();
+  return profile ? `${system}\n\n${profile}` : system;
+}
 
 /** Error type for every AI feature, regardless of the active provider. */
 export class ClaudeError extends Error {}
@@ -344,12 +355,12 @@ Restituisci SOLO un array JSON: [{"front":"...","back":"...","bloom":"...","tag"
   const raw = await callClaudeArray<EngineCard>(settings, prompt, {
     maxTokens: 16000,
     temperature: 0.3,
-    system: buildSystem(
+    system: withLearner(buildSystem(
       "MODULO FLASHCARDS: crei flashcard atomiche da active recall, pronte per l'import in Anki. Restituisci SOLO JSON valido, senza testo fuori dal JSON.",
       level,
       subject,
       hasSource,
-    ),
+    )),
     attachments,
   });
   return raw
@@ -396,12 +407,12 @@ Gli appunti devono bastare per studiare senza tornare al testo originale.`;
   return callClaudeLong(settings, prompt, {
     maxTokens: 16000,
     temperature: 0.4,
-    system: buildSystem(
+    system: withLearner(buildSystem(
       "MODULO APPUNTI: produci appunti in stile Cornell con mappa concettuale strutturata, tabelle comparative, box esperimento e trappole d'esame, glossario bilingue. Usa Markdown pulito (tabelle con | , blocchi ```conceptmap, citazioni >).",
       level,
       subject,
       hasSource,
-    ),
+    )),
     attachments,
   });
 }
@@ -429,7 +440,7 @@ ${ask} Massimo 3-4 frasi.`;
   return callClaude(settings, prompt, {
     maxTokens: 2000,
     temperature: 0.6,
-    system: "Rispondi SEMPRE in italiano. Non usare emoji.",
+    system: withLearner("Rispondi SEMPRE in italiano. Non usare emoji."),
   });
 }
 
@@ -553,12 +564,12 @@ Restituisci SOLO JSON: [{"question":"...","difficulty":"facile|media|difficile",
   const raw = await callClaudeArray<Partial<ExamQuestion>>(settings, prompt, {
     maxTokens: 16000,
     temperature: 0.5,
-    system: buildSystem(
+    system: withLearner(buildSystem(
       "MODULO MOCK TEST: prepari esami a crocette con distrattori diagnostici e answer key ragionata. Restituisci SOLO JSON valido.",
       level,
       subject,
       hasSource,
-    ),
+    )),
     attachments,
   });
   return raw
@@ -621,7 +632,7 @@ export async function extraCommand(
   return callClaudeLong(settings, extraPrompt(cmd, topic.trim() || "l'argomento", source), {
     maxTokens: 8192,
     temperature: cmd === "podcast" ? 0.7 : 0.5,
-    system: [
+    system: withLearner([
       QUALITY_STANDARDS,
       "",
       subjectGuidance(subject),
@@ -633,7 +644,7 @@ export async function extraCommand(
       levelGuidance(level),
       "",
       groundingDirective(hasSource),
-    ].join("\n"),
+    ].join("\n")),
     attachments,
   });
 }

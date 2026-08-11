@@ -171,6 +171,21 @@ and paste your [Anthropic API key](https://console.anthropic.com/settings/keys)
 > you deploy Memora for multiple users, put a small server-side proxy in front
 > of the API instead.
 
+### Updates
+
+**Windows** updates silently via electron-updater: publish a GitHub release and
+the app downloads it in the background, then prompts to restart.
+
+**macOS** can't silently auto-install without an Apple Developer ID certificate
+(Squirrel.Mac verifies the update's signature), so the app uses an *assisted*
+flow instead — it polls the release channel and, when a newer version exists,
+shows a "Scarica l'aggiornamento" button that downloads the new `.pkg`; the user
+reinstalls (data lives in a separate `userData` path, so nothing is lost). For
+this to work the mac `.pkg` must be attached to the GitHub release (not just a
+workflow artifact). If you buy an Apple Developer ID, add `CSC_LINK` /
+`CSC_KEY_PASSWORD` (and notarization) to the mac workflow and macOS gets the
+same silent auto-update as Windows.
+
 ## Architecture
 
 A strict split between pure, fully-tested logic and a typed React UI:

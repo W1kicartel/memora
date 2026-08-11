@@ -321,7 +321,7 @@ export function App() {
 
 /* ─── Auto-update toast ──────────────────────────────────────────────────── */
 
-type UpdateStatus = { phase: "downloading" | "ready"; version?: string; progress?: number };
+type UpdateStatus = { phase: "downloading" | "ready" | "manual"; version?: string; progress?: number };
 
 /**
  * A small paper note that slides in when a new version is on its way
@@ -350,6 +350,15 @@ function UpdateToast() {
           Nuova versione{status.version ? ` ${status.version}` : ""} in arrivo…
           {status.progress != null && ` ${Math.round(status.progress)}%`}
         </p>
+      ) : status.phase === "manual" ? (
+        <>
+          {/* macOS: no silent install without an Apple certificate — download
+              the new installer and reinstall (data is kept). */}
+          <p>È disponibile Memora{status.version ? ` ${status.version}` : ""}</p>
+          <button className="primary small" onClick={() => window.memoraAI?.openUpdateDownload?.()}>
+            Scarica l'aggiornamento
+          </button>
+        </>
       ) : (
         <>
           <p>Aggiornamento{status.version ? ` ${status.version}` : ""} pronto{!IS_SOCIAL && <span aria-hidden="true"> ♥</span>}</p>

@@ -345,6 +345,64 @@ function setupAutoUpdate() {
   setInterval(check, 4 * 60 * 60 * 1000);       // then every 4 hours
 }
 
+/* ── macOS: assisted update ────────────────────────────────────────────────
+   Squirrel.Mac refuses to auto-install updates that aren't signed with an
+   Apple Developer ID, and we don't sign. So on macOS we do the next best
+   thing, no certificate required: poll GitHub for a newer release and, when
+   there is one, hand the renderer a download link. One click downloads the
+   new .pkg; the user reinstalls (data lives in a separate userData path, so
+   nothing is lost). Windows keeps the fully-silent electron-updater flow. */
+
+const UPDATE_REPO = IS_SOCIAL ? 'W1kicartel/memora-social' : 'W1kicartel/memora';
+let pendingDownloadUrl = null;
+
+function semverGt(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return true;
+    if ((pa[i] || 0) < (pb[i] || 0)) return false;
+  }
+  return false;
+}
+
+async function checkMacUpdate() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`, {
+      headers: { accept: 'application/vnd.github+json' },
+    });
+    if (!res.ok) return;
+    const rel = await res.json();
+    const latest = String(rel.tag_name || '').replace(/^v/, '');
+    if (!latest || !semverGt(latest, app.getVersion())) return;
+
+    const assets = rel.assets || [];
+    // Prefer the .pkg wizard installer for this arch; fall back to a dmg,
+    // then to the release page.
+    const wanted = process.arch === 'arm64' ? 'arm64' : 'x64';
+    const pick = (pred) => (assets.find(pred) || {}).browser_download_url;
+    pendingDownloadUrl =
+      pick((a) => a.name.endsWith('.pkg') && a.name.includes(wanted)) ||
+      pick((a) => a.name.endsWith('.pkg')) ||
+      pick((a) => a.name.endsWith('.dmg') && a.name.includes(wanted)) ||
+      rel.html_url;
+
+    sendUpdate({ phase: 'manual', version: latest });
+    notify(`È disponibile ${APP_NAME} ${latest}. Apri l'app per scaricarlo.`);
+  } catch { /* offline / rate-limited — retry on the next tick */ }
+}
+
+function setupMacUpdate() {
+  if (!app.isPackaged || process.platform !== 'darwin') return;
+  setTimeout(checkMacUpdate, 15_000);
+  setInterval(checkMacUpdate, 4 * 60 * 60 * 1000);
+}
+
+// macOS assisted update: open the download the checker found.
+ipcMain.handle('update:openDownload', () => {
+  if (pendingDownloadUrl) shell.openExternal(pendingDownloadUrl);
+});
+
 ipcMain.handle('update:install', () => {
   if (autoUpdater) autoUpdater.quitAndInstall();
 });
@@ -439,7 +497,8 @@ app.whenReady().then(() => {
   // Required on Windows for toast notifications to actually appear.
   app.setAppUserModelId(APP_ID);
   createMainWindow();
-  setupAutoUpdate();
+  setupAutoUpdate();   // Windows: silent electron-updater
+  setupMacUpdate();    // macOS: assisted "download & reinstall" checker
   // Ready-to-use out of the box: local AI is the default provider, so the
   // whole chain (install Ollama → start it → pull the model → build
   // memora-engine) runs on first launch, not when someone finds the setting.

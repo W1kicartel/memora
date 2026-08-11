@@ -56,9 +56,11 @@ interface Bridge {
   authorizeSpotify?(authUrl: string, port: number): Promise<{ code: string }>;
   /** Fetch a public music.apple.com page from the main process (no CORS). */
   fetchApplePage?(url: string): Promise<{ html?: string; error?: string }>;
-  /** Auto-update: status stream + restart-and-install. */
-  onUpdate?(cb: (s: { phase: "downloading" | "ready"; version?: string; progress?: number }) => void): () => void;
+  /** Auto-update: status stream + restart-and-install (+ macOS assisted download). */
+  onUpdate?(cb: (s: { phase: "downloading" | "ready" | "manual"; version?: string; progress?: number }) => void): () => void;
   installUpdate?(): Promise<void>;
+  /** macOS: open the download the update checker found. */
+  openUpdateDownload?(): Promise<void>;
 }
 declare global {
   interface Window { memoraAI?: Bridge }

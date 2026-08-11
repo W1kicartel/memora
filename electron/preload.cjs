@@ -21,4 +21,5 @@ contextBridge.exposeInMainWorld('memoraAI', {
     return () => ipcRenderer.removeListener('update:status', listener);
   },
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  openUpdateDownload: () => ipcRenderer.invoke('update:openDownload'),
 });

@@ -49,8 +49,8 @@ export interface Settings {
   apiKey: string;
   /** Claude model id used when provider is "claude". */
   model: string;
-  /** Light or dark theme. */
-  theme: "light" | "dark";
+  /** Visual theme: warm paper, flat dark, or bubblegum pink. */
+  theme: "light" | "dark" | "pink";
   /** UI language. */
   lang: Lang;
 }

@@ -843,12 +843,19 @@ function ProfileView({ settings, onChange, onLoadDemo }: { settings: Settings; o
         <h3>{t("set.appearance")}</h3>
         <div className="row">
           <label className="field-label">{t("set.theme")}</label>
-          <button
-            className="ghost"
-            onClick={() => onChange({ ...settings, theme: settings.theme === "light" ? "dark" : "light" })}
-          >
-            {settings.theme === "light" ? t("set.toDark") : t("set.toLight")}
-          </button>
+          {([
+            { id: "light" as const, label: "🗒 Carta" },
+            { id: "dark" as const, label: "🌙 Notte" },
+            { id: "pink" as const, label: "🍬 Bubblegum" },
+          ]).map((th) => (
+            <button
+              key={th.id}
+              className={settings.theme === th.id ? "theme-pill on" : "theme-pill"}
+              onClick={() => onChange({ ...settings, theme: th.id })}
+            >
+              {th.label}
+            </button>
+          ))}
         </div>
       </section>
 

@@ -2850,3 +2850,146 @@ body::before, body::after { display: none; }
   .wax-seal { animation: none; }
   .deck-card, .grades button { transform: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUBBLEGUM 🍬 — the Big Babol theme. Same journal structure as Carta
+   (it rides all the :root:not([data-theme="dark"]) rules), repainted in
+   bubblegum pink with a raspberry accent. Only the hardcoded claret/cream
+   details need explicit overrides below the token block.
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="pink"] {
+  --bg-base:     #f9d9e7;
+  --bg-deep:     #f3c3d9;
+  --bg-elevated: #fdeef5;
+  --bg-raised:   #fff7fb;
+
+  --fg-base:   #46203a;
+  --fg-muted:  #8a5b76;
+  --fg-subtle: #bb8aa4;
+
+  --border-0: rgba(70,32,58,.08);
+  --border-1: rgba(70,32,58,.14);
+  --border-2: rgba(70,32,58,.22);
+  --border-a: rgba(214,51,108,.5);
+
+  --accent:       #d6336c;
+  --accent-light: #a61e4d;
+  --accent-dim:   #c2255c;
+  --accent-wash:  rgba(214,51,108,.12);
+  --accent-glow:  rgba(214,51,108,.2);
+  --accent-glow2: rgba(214,51,108,.12);
+
+  --ok:   #2b8a5c;
+  --warn: #b8862f;
+  --err:  #c0392b;
+
+  --data-1: #d6336c;
+  --data-2: #b8862f;
+  --data-3: #2b8a5c;
+  --data-4: #6a5acd;
+  --data-5: #c2559a;
+
+  --glass-bg:       #fdeef5;
+  --glass-bg-hover: #fff7fb;
+  --glass-border:   rgba(70,32,58,.12);
+  --glass-shadow:   0 1px 2px rgba(120,40,80,.12), 0 2px 10px rgba(120,40,80,.08);
+  --glass-shadow-h: 0 2px 6px rgba(120,40,80,.16), 0 10px 26px rgba(120,40,80,.12);
+  --glass-shine:    linear-gradient(135deg, rgba(255,255,255,.6) 0%, transparent 46%);
+
+  --nav-bg:     #f6cde0;
+  --nav-item-h: rgba(70,32,58,.06);
+  --nav-glow:   0 0 0 0 transparent;
+
+  --btn-glow:   0 1px 2px rgba(120,40,80,.22), 0 1px 3px rgba(120,40,80,.1);
+  --btn-glow-h: 0 2px 6px rgba(120,40,80,.24), 0 6px 14px rgba(120,40,80,.12);
+
+  --input-bg:   #fff7fb;
+  --input-ring: 0 0 0 3px rgba(214,51,108,.18);
+}
+
+/* Ground: candy glow instead of the claret wash. */
+[data-theme="pink"] .backdrop {
+  background:
+    radial-gradient(1000px 640px at 12% -8%, rgba(214,51,108,.08), transparent 60%),
+    radial-gradient(820px 560px at 92% 108%, rgba(106,90,205,.06), transparent 60%),
+    var(--bg-base);
+}
+[data-theme="pink"] body { background: linear-gradient(170deg, #f9d9e7 0%, #f3c3d9 100%); background-attachment: fixed; }
+
+/* The notebook page: raspberry margin line, soft grape rules. */
+[data-theme="pink"] main {
+  background:
+    linear-gradient(90deg,
+      transparent 0, transparent 42px,
+      rgba(214,51,108,.28) 42px, rgba(214,51,108,.28) 43px,
+      transparent 43px),
+    repeating-linear-gradient(180deg,
+      transparent 0, transparent 35px,
+      rgba(106,90,205,.08) 35px, rgba(106,90,205,.08) 36px);
+  background-attachment: local, local;
+}
+
+/* Hand-drawn underline in raspberry. */
+[data-theme="pink"] .hero-headline em {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M3 9 C 30 4, 62 3, 117 6' fill='none' stroke='%23d6336c' stroke-width='4' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E");
+}
+
+/* Paper scraps (note, song pin, toast): candy paper + bubblegum tape. */
+[data-theme="pink"] .hero-note,
+[data-theme="pink"] .song-pin,
+[data-theme="pink"] .update-toast {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.6) 0%, transparent 55%),
+    #fff0f7;
+  border-color: rgba(70,32,58,.14);
+}
+[data-theme="pink"] .hero-note::before,
+[data-theme="pink"] .song-pin::before {
+  background: rgba(214,51,108,.18);
+  border-color: rgba(214,51,108,.14);
+}
+
+/* Index cards: pink rules, raspberry header line. */
+[data-theme="pink"] .flashcard-face {
+  background:
+    repeating-linear-gradient(180deg,
+      transparent 0px, transparent 27px,
+      rgba(106,90,205,.12) 27px, rgba(106,90,205,.12) 28px),
+    var(--bg-raised);
+}
+[data-theme="pink"] .flashcard-face::after { background: rgba(214,51,108,.4); }
+[data-theme="pink"] .flashcard-back { border-color: rgba(214,51,108,.4); }
+
+/* Deck cards: raspberry margin + bubblegum tape. */
+[data-theme="pink"] .deck-card {
+  background:
+    linear-gradient(90deg,
+      transparent 0, transparent 13px,
+      rgba(214,51,108,.32) 13px, rgba(214,51,108,.32) 14px,
+      transparent 14px),
+    var(--bg-raised);
+}
+[data-theme="pink"] .deck-card-accent {
+  background: rgba(214,51,108,.2);
+  border-color: rgba(214,51,108,.15);
+}
+
+/* Small claret-literal leftovers from the Carta overrides. */
+[data-theme="pink"] .badge { border-color: rgba(214,51,108,.35); }
+[data-theme="pink"] .review-all-notice { border-color: rgba(214,51,108,.4); }
+[data-theme="pink"] .cmap-title {
+  background: linear-gradient(135deg, rgba(214,51,108,.9), rgba(106,90,205,.75));
+}
+[data-theme="pink"] .song-pin-hint code { background: rgba(70,32,58,.08); }
+
+/* Theme picker pills (Profile → Aspetto). */
+.theme-pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .5rem .9rem; border-radius: var(--r-sm);
+  font-size: .87rem; font-weight: 600;
+  border: 1px solid var(--border-1);
+  background: var(--bg-deep); color: var(--fg-muted);
+  box-shadow: none;
+}
+.theme-pill:hover:not(:disabled) { border-color: var(--border-2); color: var(--fg-base); }
+.theme-pill.on { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }

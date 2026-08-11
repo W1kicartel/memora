@@ -3245,9 +3245,23 @@ body::before, body::after { display: none; }
   0%, 91%, 100% { transform: scaleY(1); }
   94%, 97%      { transform: scaleY(.1); }
 }
+/* the wave: a couple of cheerful swings, then rest until the next loop */
+.tour-mascot-arm { animation: tour-wave 3.6s ease-in-out infinite; transform-origin: 76px 62px; }
+@keyframes tour-wave {
+  0%, 40%, 100% { transform: rotate(0deg); }
+  8%  { transform: rotate(-22deg); }
+  16% { transform: rotate(8deg); }
+  24% { transform: rotate(-16deg); }
+  32% { transform: rotate(0deg); }
+}
+.tour-mascot-sparkle { animation: tour-sparkle 2.8s ease-in-out infinite; transform-origin: 16px 25px; transform-box: view-box; }
+@keyframes tour-sparkle {
+  0%, 100% { opacity: .25; transform: scale(.7) rotate(0deg); }
+  50%      { opacity: .9;  transform: scale(1.1) rotate(18deg); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .tour-spotlight { transition: none; }
   .tour-card, .tour-dim { animation: none; }
-  .tour-mascot, .tour-mascot-eye { animation: none; }
+  .tour-mascot, .tour-mascot-eye, .tour-mascot-arm, .tour-mascot-sparkle { animation: none; }
 }

@@ -37,34 +37,64 @@ function markTourDone(): void {
 /* ─── Graffetta, the paperclip guide ─────────────────────────────────────── */
 
 /**
- * A hand-drawn paperclip with a face. The inner/outer loops are two stroke
- * paths; eyes blink and the whole clip floats via CSS (.tour-mascot).
+ * A kawaii paperclip: chubby capsule body with the clip's inner wire hinted
+ * on the lower half, big sparkly eyes, blush, an open smile and a waving
+ * arm. Floats, blinks and waves via CSS (.tour-mascot / -eye / -arm).
  */
-export function Graffetta({ size = 84 }: { size?: number }) {
+export function Graffetta({ size = 92 }: { size?: number }) {
   return (
     <svg
       className="tour-mascot"
       width={size}
-      height={size * 1.25}
-      viewBox="0 0 80 100"
+      height={size * 1.2}
+      viewBox="0 0 100 120"
       fill="none"
       aria-hidden="true"
     >
-      {/* outer loop */}
+      {/* soft ground shadow */}
+      <ellipse cx="50" cy="113" rx="24" ry="4.5" fill="var(--fg-base)" opacity=".10" />
+
+      {/* waving arm (behind the body, right side) */}
+      <g className="tour-mascot-arm">
+        <path d="M 76 62 Q 90 52 94 40" stroke="var(--accent)" strokeWidth="6" strokeLinecap="round" />
+        <circle cx="94" cy="38" r="5.5" fill="var(--accent)" />
+      </g>
+      {/* resting arm (left) */}
+      <path d="M 24 66 Q 14 74 12 82" stroke="var(--accent)" strokeWidth="6" strokeLinecap="round" />
+      <circle cx="12" cy="84" r="5.5" fill="var(--accent)" />
+
+      {/* chubby capsule body */}
+      <rect x="24" y="6" width="52" height="102" rx="26" fill="var(--bg-raised)" stroke="var(--accent)" strokeWidth="5.5" />
+      {/* the clip's inner wire, hinted on the belly so the face stays clear */}
       <path
-        d="M 22 88 L 22 26 C 22 10 58 10 58 26 L 58 74 C 58 86 34 86 34 74 L 34 34"
+        d="M 38 104 L 38 66 C 38 56 62 56 62 66 L 62 92"
         stroke="var(--accent)"
-        strokeWidth="7"
+        strokeWidth="5"
         strokeLinecap="round"
-        fill="none"
+        opacity=".35"
       />
-      {/* face on the top bend */}
+
+      {/* face */}
       <g className="tour-mascot-face">
-        <circle cx="33" cy="27" r="3.6" fill="var(--fg-base)" className="tour-mascot-eye" />
-        <circle cx="47" cy="27" r="3.6" fill="var(--fg-base)" className="tour-mascot-eye" />
-        <path d="M 33 36 Q 40 43 47 36" stroke="var(--fg-base)" strokeWidth="3" strokeLinecap="round" fill="none" />
-        <circle cx="26.5" cy="33" r="3" fill="var(--accent)" opacity=".35" />
-        <circle cx="53.5" cy="33" r="3" fill="var(--accent)" opacity=".35" />
+        {/* eyes: big, glossy */}
+        <g className="tour-mascot-eye">
+          <ellipse cx="39" cy="32" rx="5" ry="6" fill="var(--fg-base)" />
+          <circle cx="40.8" cy="29.6" r="1.9" fill="#fff" />
+        </g>
+        <g className="tour-mascot-eye">
+          <ellipse cx="61" cy="32" rx="5" ry="6" fill="var(--fg-base)" />
+          <circle cx="62.8" cy="29.6" r="1.9" fill="#fff" />
+        </g>
+        {/* open happy smile */}
+        <path d="M 42 43 Q 50 52 58 43 Q 50 47 42 43 Z" fill="var(--fg-base)" />
+        {/* blush */}
+        <ellipse cx="32" cy="41" rx="4.2" ry="2.8" fill="var(--accent)" opacity=".30" />
+        <ellipse cx="68" cy="41" rx="4.2" ry="2.8" fill="var(--accent)" opacity=".30" />
+      </g>
+
+      {/* a tiny sparkle, because she's delighted to see you */}
+      <g className="tour-mascot-sparkle" fill="var(--accent)">
+        <path d="M 16 18 L 18 23 L 23 25 L 18 27 L 16 32 L 14 27 L 9 25 L 14 23 Z" opacity=".8" />
       </g>
     </svg>
   );

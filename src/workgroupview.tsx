@@ -292,6 +292,23 @@ function GroupDetail({
     onChange({ ...group, syncId: makeSyncId() });
   };
 
+  /* Keep my member entry's name/avatar aligned with my profile — that's how
+     a new profile picture reaches the other members (via merge + sync). */
+  useEffect(() => {
+    const me = group.members.find((m) => m.id === profile.id);
+    if (!me) return;
+    if (me.name === profile.name && (me.avatar ?? undefined) === (profile.avatar ?? undefined)) return;
+    onChange({
+      ...group,
+      members: group.members.map((m) =>
+        m.id === profile.id
+          ? { ...m, name: profile.name, ...(profile.avatar ? { avatar: profile.avatar } : { avatar: undefined }) }
+          : m
+      ),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group, profile]);
+
   const copyInvite = async () => {
     const link = encodeInvite(group);
     try {
@@ -356,6 +373,9 @@ function GroupDetail({
           <div className="wg-members">
             {group.members.map((m) => (
               <span key={m.id} className={m.id === profile.id ? "member-chip me" : "member-chip"}>
+                {m.avatar
+                  ? <img className="avatar-mini" src={m.avatar} alt="" />
+                  : <span className="avatar-mini avatar-letter" aria-hidden="true">{(m.name[0] ?? "?").toUpperCase()}</span>}
                 {m.name}{m.role === "owner" ? " ★" : ""}
               </span>
             ))}
@@ -478,13 +498,17 @@ function LeaderboardBox({ group, profile }: { group: Workgroup; profile: Profile
         <div className="lb-podium">
           <p className="lb-month">{monthLabel(lastMonth)}</p>
           <ol className="lb-list">
-            {podium.map((s, i) => (
-              <li key={s.memberId} className={s.memberId === profile.id ? "lb-row me" : "lb-row"}>
-                <span className="lb-medal">{MEDALS[i] ?? `${i + 1}.`}</span>
-                <span className="lb-name">{s.name}</span>
-                <span className="lb-pts">{s.points.toLocaleString()} pt · {s.activeDays} days</span>
-              </li>
-            ))}
+            {podium.map((s, i) => {
+              const av = group.members.find((m) => m.id === s.memberId)?.avatar;
+              return (
+                <li key={s.memberId} className={s.memberId === profile.id ? "lb-row me" : "lb-row"}>
+                  <span className="lb-medal">{MEDALS[i] ?? `${i + 1}.`}</span>
+                  {av && <img className="avatar-mini lb-avatar" src={av} alt="" />}
+                  <span className="lb-name">{s.name}</span>
+                  <span className="lb-pts">{s.points.toLocaleString()} pt · {s.activeDays} days</span>
+                </li>
+              );
+            })}
           </ol>
           {constancy[0] && (
             <p className="lb-constancy">
@@ -574,7 +598,13 @@ function ChatBox({
         <div className="wg-chat" ref={listRef}>
           {messages.map((m) => (
             <div key={m.id} className={m.author === profile.name ? "wg-msg mine" : "wg-msg"}>
-              <span className="wg-msg-meta">{m.author} · {fmtAt(m.at)}</span>
+              <span className="wg-msg-meta">
+                {(() => {
+                  const av = group.members.find((x) => x.name === m.author)?.avatar;
+                  return av ? <img className="avatar-mini" src={av} alt="" /> : null;
+                })()}
+                {m.author} · {fmtAt(m.at)}
+              </span>
               {m.media ? (
                 <img
                   className={m.kind === "sticker" ? "wg-msg-media sticker" : "wg-msg-media"}

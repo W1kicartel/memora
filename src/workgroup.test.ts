@@ -117,6 +117,26 @@ const luca: Profile = { id: "u-luca", name: "Luca" };
   assert((back?.events ?? []).length === 2, "events survive the invite round-trip");
 }
 
+// --- avatar propagation ------------------------------------------------------
+{
+  const withPic: Profile = { id: "u-anna", name: "Anna", avatar: "data:image/jpeg;base64,AAA" };
+  const g = createGroup("Con foto", "", withPic);
+  assert(g.members[0].avatar === "data:image/jpeg;base64,AAA", "creator's avatar lands on their member entry");
+
+  const remote: Workgroup = JSON.parse(JSON.stringify(g));
+  remote.members[0].avatar = "data:image/jpeg;base64,BBB"; // she updated her picture elsewhere
+  const m = mergeGroups(g, remote);
+  assert(m.members[0].avatar === "data:image/jpeg;base64,BBB", "incoming avatar wins (only its owner writes it)");
+
+  const legacy: Workgroup = JSON.parse(JSON.stringify(g));
+  delete legacy.members[0].avatar; // snapshot from a pre-avatar version
+  const kept = mergeGroups(m, legacy);
+  assert(kept.members[0].avatar === "data:image/jpeg;base64,BBB", "avatar survives merging a legacy snapshot");
+
+  const joined = joinGroup([], g, { id: "u-luca", name: "Luca", avatar: "data:image/jpeg;base64,LLL" });
+  assert(joined[0].members.find((x) => x.id === "u-luca")?.avatar === "data:image/jpeg;base64,LLL", "joiner's avatar travels with them");
+}
+
 // --- chat merge --------------------------------------------------------------
 {
   const a = createGroup("Con chat", "", anna);

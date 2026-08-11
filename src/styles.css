@@ -3265,3 +3265,33 @@ body::before, body::after { display: none; }
   .tour-card, .tour-dim { animation: none; }
   .tour-mascot, .tour-mascot-eye, .tour-mascot-arm, .tour-mascot-sparkle { animation: none; }
 }
+
+/* ── profile pictures ── */
+.profile-avatar { position: relative; cursor: pointer; overflow: hidden; }
+.profile-avatar img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; border-radius: inherit;
+}
+.profile-avatar-edit {
+  position: absolute; right: -2px; bottom: -2px;
+  font-size: .8rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-1); border-radius: 50%;
+  width: 1.5rem; height: 1.5rem;
+  display: grid; place-items: center;
+}
+.avatar-mini {
+  width: 18px; height: 18px; border-radius: 50%;
+  object-fit: cover; vertical-align: -4px;
+  margin-right: .3rem;
+  border: 1px solid var(--border-1);
+  display: inline-block;
+}
+.avatar-letter {
+  background: var(--accent-wash); color: var(--accent);
+  font-size: .6rem; font-weight: 700;
+  text-align: center; line-height: 16px;
+}
+.wg-msg-meta .avatar-mini { width: 16px; height: 16px; vertical-align: -3px; }
+.lb-avatar { width: 22px; height: 22px; }

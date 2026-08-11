@@ -16,6 +16,7 @@ import { loadLife, saveLife, type LifeState } from "./life";
 import { generateDemoHistory } from "./demo";
 import { LangContext, translate, useT, LANGS, type Lang, type TFn } from "./i18n";
 import { loadProfile, saveProfile } from "./workgroup";
+import { fileToAvatar } from "./avatar";
 import {
   IconDecks, IconProgress, IconLife, IconUsers, IconAI, IconSettings,
   IconArrowLeft, IconTrash, IconUpload, IconDownload, IconCheck, IconKey,
@@ -903,11 +904,32 @@ function ProfileView({ settings, onChange, onLoadDemo, onReplayTour }: { setting
   const ollamaStatus = useOllamaStatus(provider !== "claude", settings.ollamaModel || DEFAULT_OLLAMA_MODEL);
   const [name, setName] = useState(() => loadProfile()?.name ?? "");
   const [savedName, setSavedName] = useState(name);
+  const [avatar, setAvatar] = useState<string | undefined>(() => loadProfile()?.avatar);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
 
   function saveName() {
     const p = saveProfile(name);
     setName(p.name);
     setSavedName(p.name);
+  }
+
+  async function pickAvatar(file: File) {
+    setAvatarError(null);
+    try {
+      const dataUrl = await fileToAvatar(file);
+      // Needs a saved name: a profile without a name doesn't persist.
+      const p = saveProfile(savedName || name.trim(), dataUrl);
+      setAvatar(p.avatar);
+      if (!savedName && p.name) { setSavedName(p.name); setName(p.name); }
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : "immagine non valida");
+    }
+  }
+
+  function removeAvatar() {
+    saveProfile(savedName || name.trim(), null);
+    setAvatar(undefined);
   }
 
   function download() {
@@ -925,7 +947,22 @@ function ProfileView({ settings, onChange, onLoadDemo, onReplayTour }: { setting
       <h2>{t("profile.title")}</h2>
 
       <section className="card-box profile-hero">
-        <div className="profile-avatar" aria-hidden="true">{initial}</div>
+        <button
+          className="profile-avatar"
+          title={avatar ? "Cambia foto profilo" : "Aggiungi una foto profilo"}
+          onClick={() => avatarFileRef.current?.click()}
+        >
+          {avatar ? <img src={avatar} alt="Foto profilo" /> : initial}
+          <span className="profile-avatar-edit" aria-hidden="true">📷</span>
+        </button>
+        <input
+          ref={avatarFileRef} type="file" accept="image/*" hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) void pickAvatar(f);
+          }}
+        />
         <div className="profile-id">
           <label className="field-label">{t("profile.name")}</label>
           <div className="row">
@@ -940,6 +977,12 @@ function ProfileView({ settings, onChange, onLoadDemo, onReplayTour }: { setting
               {t("profile.save")}
             </button>
           </div>
+          {avatarError && <p className="error-text" style={{ marginTop: ".4rem" }}>{avatarError}</p>}
+          {avatar && (
+            <button className="link" style={{ marginTop: ".4rem", fontSize: ".78rem" }} onClick={removeAvatar}>
+              Rimuovi foto
+            </button>
+          )}
         </div>
       </section>
 

@@ -27,6 +27,8 @@ export interface Member {
   name: string;
   role: "owner" | "member";
   joinedAt: number;
+  /** tiny square avatar as a data URL (~5 KB) — travels with snapshots. */
+  avatar?: string;
 }
 
 /** One piece of shared study material. */
@@ -109,6 +111,8 @@ export interface Workgroup {
 export interface Profile {
   id: string;
   name: string;
+  /** tiny square avatar as a data URL (set in Profile → picture). */
+  avatar?: string;
 }
 
 /* ─── persistence ─────────────────────────────────────────────────────────── */
@@ -143,9 +147,18 @@ export function loadProfile(): Profile | null {
   }
 }
 
-export function saveProfile(name: string): Profile {
+/**
+ * Persist the local identity. `avatar` semantics: omit to keep the current
+ * picture, pass a data URL to set one, pass null to remove it.
+ */
+export function saveProfile(name: string, avatar?: string | null): Profile {
   const existing = loadProfile();
-  const p: Profile = { id: existing?.id ?? uid(), name: name.trim() };
+  const nextAvatar = avatar === undefined ? existing?.avatar : avatar ?? undefined;
+  const p: Profile = {
+    id: existing?.id ?? uid(),
+    name: name.trim(),
+    ...(nextAvatar ? { avatar: nextAvatar } : {}),
+  };
   try {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
   } catch { /* ignore */ }
@@ -160,7 +173,10 @@ export function createGroup(name: string, description: string, owner: Profile): 
     name: name.trim(),
     description: description.trim(),
     createdAt: Date.now(),
-    members: [{ id: owner.id, name: owner.name, role: "owner", joinedAt: Date.now() }],
+    members: [{
+      id: owner.id, name: owner.name, role: "owner", joinedAt: Date.now(),
+      ...(owner.avatar ? { avatar: owner.avatar } : {}),
+    }],
     folders: [],
     events: [],
     chat: [],
@@ -232,9 +248,16 @@ function validGroup(g: Workgroup | undefined): boolean {
  * Commutative over repeated exchanges, so any link/bundle order converges.
  */
 export function mergeGroups(local: Workgroup, incoming: Workgroup): Workgroup {
-  const members = [...local.members];
+  const members = local.members.map((m) => ({ ...m }));
   for (const m of incoming.members) {
-    if (!members.some((x) => x.id === m.id)) members.push(m);
+    const mine = members.find((x) => x.id === m.id);
+    if (!mine) {
+      members.push(m);
+    } else if (m.avatar && m.avatar !== mine.avatar) {
+      // Only a member's own device writes their avatar, so an incoming
+      // picture is either identical or fresher — adopt it.
+      mine.avatar = m.avatar;
+    }
   }
 
   const folders = local.folders.map((f) => ({ ...f, items: [...f.items] }));
@@ -351,7 +374,10 @@ export function joinGroup(existing: Workgroup[], snapshot: Workgroup, self: Prof
   if (!merged.members.some((m) => m.id === self.id)) {
     merged.members = [
       ...merged.members,
-      { id: self.id, name: self.name, role: "member", joinedAt: Date.now() },
+      {
+        id: self.id, name: self.name, role: "member", joinedAt: Date.now(),
+        ...(self.avatar ? { avatar: self.avatar } : {}),
+      },
     ];
   }
   return mine

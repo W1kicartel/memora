@@ -34,6 +34,7 @@ export interface GifResult {
 interface MediaFormat { url?: string }
 interface ApiItem {
   id?: string | number;
+  title?: string;
   content_description?: string;
   media_formats?: Record<string, MediaFormat>;
 }
@@ -73,7 +74,7 @@ export async function searchGifs(
       id: String(item.id),
       url,
       preview: f.tinygif?.url ?? url,
-      alt: item.content_description ?? "GIF",
+      alt: item.content_description || item.title || "GIF",
     }];
   });
 }

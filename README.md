@@ -67,6 +67,15 @@ actually works:
 > backend when a member turns on live sync; synced content is visible to the
 > app operator for moderation (see `admin/dashboard.html`). Not end-to-end
 > encrypted — say so to your users, and don't share secrets in group chat.
+> The app also sends an anonymous usage heartbeat (edition, version, faculty
+> — no content) so the operator dashboard can show active users and time
+> spent; disclose this too.
+
+**🛠 Operator dashboard** (`admin/dashboard.html`, dark "god mode" console)
+- **Overview**: total/active users, estimated time spent, per-faculty and per-version breakdowns, a 30-day activity sparkline
+- **Users & time**: per-install usage detail
+- **Groups**: supervise any synced group and **post chat messages or add calendar events into it** (delivered instantly via live sync)
+- **Support** inbox and **targeted notices**, as before
 
 **🛟 Support**
 - A Support button in the nav: pick a reason (bug, feature idea, help, inappropriate-content report, data issues, other), write, send

@@ -1,7 +1,7 @@
 {
   "name": "memora",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Memora — the evidence-based study workspace. Spaced repetition, a local AI study engine (auto-installed Ollama) and built-in mnemonic techniques.",

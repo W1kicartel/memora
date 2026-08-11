@@ -20,6 +20,7 @@ import { fileToAvatar } from "./avatar";
 import { updateLearnerProfile } from "./learner";
 import { FACULTIES, dailyPhrase, sessionPhrase } from "./motivation";
 import { Memo } from "./tour";
+import { startUsageHeartbeat } from "./usage";
 import {
   IconDecks, IconProgress, IconLife, IconUsers, IconAI, IconSettings,
   IconArrowLeft, IconTrash, IconUpload, IconDownload, IconCheck, IconKey,
@@ -100,6 +101,9 @@ export function App() {
     const cleanups = [initRipple(), initCardTilt(), initMagnetic()];
     return () => cleanups.forEach((fn) => fn());
   }, []);
+
+  /* Anonymous usage heartbeat (powers the operator dashboard's stats). */
+  useEffect(() => startUsageHeartbeat(), []);
 
   /* Browser-mode Spotify OAuth: if we just landed on /callback, finish it.
      The bacheca's song widget listens for the event and reloads its state. */

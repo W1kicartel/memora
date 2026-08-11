@@ -1,0 +1,54 @@
+# Build-only macOS installers — no publishing, no secrets needed.
+#
+# Produces the social edition's .pkg/.dmg on a GitHub macOS runner and
+# uploads them as run artifacts (kept 14 days). Use this to grab an
+# installer file to hand to someone directly; `release-mac` remains the
+# workflow that publishes to the releases (and needs the GH_TOKEN secret).
+name: build-mac-installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: Which edition to build
+        type: choice
+        options:
+          - social
+          - private
+        default: social
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build social installers
+        if: ${{ inputs.edition == 'social' }}
+        run: |
+          npm run build:social
+          npx electron-builder --mac --config electron-builder.social.json --publish never
+
+      - name: Build private installers
+        if: ${{ inputs.edition == 'private' }}
+        run: |
+          npm run build
+          npx electron-builder --mac --publish never
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-installers-${{ inputs.edition }}
+          retention-days: 14
+          path: |
+            release-social/*.pkg
+            release-social/*.dmg
+            release/*.pkg
+            release/*.dmg

@@ -1,0 +1,71 @@
+{
+  "name": "memora",
+  "private": true,
+  "version": "1.0.1",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "description": "Memora — the evidence-based study workspace. Spaced repetition, a local AI study engine (auto-installed Ollama) and built-in mnemonic techniques.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "tsx src/sm2.test.ts && tsx src/import.test.ts && tsx src/stats.test.ts && tsx src/life.test.ts && tsx src/workgroup.test.ts && tsx src/jsonx.test.ts && tsx src/conceptmap.test.ts && tsx src/moments.test.ts && tsx src/score.test.ts && tsx src/music.test.ts",
+    "electron": "npm run build && electron .",
+    "package": "npm run build && electron-builder --win",
+    "release": "npm run build && electron-builder --win --publish always"
+  },
+  "build": {
+    "appId": "app.memora.desktop",
+    "productName": "Memora",
+    "publish": {
+      "provider": "github",
+      "owner": "W1kicartel",
+      "repo": "memora",
+      "releaseType": "release"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "jszip": "^3.10.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.0.1",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.3",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.4"
+  }
+}

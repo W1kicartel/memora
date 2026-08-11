@@ -1,0 +1,20 @@
+node_modules
+dist
+dist-ssr
+release
+*.local
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.claude
+
+# Code-signing material — never commit certificates or private keys
+build/signing
+*.pfx
+*.p12
+
+# Generated media artifacts (promo videos, soundtrack render)
+*.mp4
+carillon.wav
+promo-filter.txt
+.playwright-mcp

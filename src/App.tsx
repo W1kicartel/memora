@@ -18,6 +18,8 @@ import { LangContext, translate, useT, LANGS, type Lang, type TFn } from "./i18n
 import { loadProfile, saveProfile } from "./workgroup";
 import { fileToAvatar } from "./avatar";
 import { updateLearnerProfile } from "./learner";
+import { FACULTIES, dailyPhrase, sessionPhrase } from "./motivation";
+import { Memo } from "./tour";
 import {
   IconDecks, IconProgress, IconLife, IconUsers, IconAI, IconSettings,
   IconArrowLeft, IconTrash, IconUpload, IconDownload, IconCheck, IconKey,
@@ -228,10 +230,18 @@ export function App() {
           />
         )}
 
+        {/* Mini questionnaire: one tap, themes the motivational phrases.
+            Shows once — after the tour for new installs, at next launch for
+            existing users updating in. */}
+        {!tourOpen && settings.faculty === undefined && (
+          <FacultyPrompt onPick={(id) => setSettings({ ...settings, faculty: id })} />
+        )}
+
         {view.tab === "decks" && (
           <DeckList
             decks={decks}
             events={events}
+            faculty={settings.faculty}
             onOpen={(id) => setView({ tab: "deck", deckId: id })}
             onCreate={(name) => setDecks((ds) => [...ds, { id: uid(), name, cards: [] }])}
             onDelete={(id) => setDecks((ds) => ds.filter((d) => d.id !== id))}
@@ -435,6 +445,38 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ─── Faculty mini questionnaire ─────────────────────────────────────────── */
+
+/**
+ * One question, one tap: which degree family? Themes the motivational
+ * phrases (motivation.ts) so encouragement speaks the user's language —
+ * a med student and a law student read different words.
+ */
+function FacultyPrompt({ onPick }: { onPick: (id: string) => void }) {
+  return (
+    <div className="support-overlay" role="dialog" aria-modal="true" aria-label="Cosa studi?">
+      <div className="support-panel card-box faculty-panel">
+        <div className="faculty-head">
+          <Memo size={56} />
+          <div>
+            <h3 style={{ margin: 0 }}>Un'ultima cosa: cosa studi?</h3>
+            <p className="hint" style={{ margin: ".25rem 0 0" }}>
+              Così Memora ti parla nella lingua del tuo corso. Lo cambi quando vuoi dal Profilo.
+            </p>
+          </div>
+        </div>
+        <div className="faculty-grid">
+          {FACULTIES.map((f) => (
+            <button key={f.id} className="faculty-pill" onClick={() => onPick(f.id)}>
+              <span aria-hidden="true">{f.emoji}</span> {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Operator notices ───────────────────────────────────────────────────── */
 
 /**
@@ -490,10 +532,11 @@ function NoticesToast() {
 
 /* ─── Hero strip ─────────────────────────────────────────────────────────── */
 
-function HeroStrip({ decks, events }: { decks: Deck[]; events: ReviewEvent[] }) {
+function HeroStrip({ decks, events, faculty }: { decks: Deck[]; events: ReviewEvent[]; faculty?: string }) {
   const now = Date.now();
   const totalDue = decks.reduce((sum, d) => sum + dueCards(d, now).length, 0);
   const totalReviews = events.length;
+  const motto = dailyPhrase(faculty, now);
 
   return (
     <div className="hero-strip">
@@ -528,6 +571,8 @@ function HeroStrip({ decks, events }: { decks: Deck[]; events: ReviewEvent[] }) 
           <span className="hero-stat-l">cards</span>
         </div>
       </div>
+      {/* The phrase of the day — themed on the user's faculty. */}
+      <p className="hero-motto">“{motto}”</p>
     </div>
   );
 }
@@ -537,6 +582,7 @@ function HeroStrip({ decks, events }: { decks: Deck[]; events: ReviewEvent[] }) 
 function DeckList(props: {
   decks: Deck[];
   events: ReviewEvent[];
+  faculty?: string;
   onOpen: (id: string) => void;
   onCreate: (name: string) => void;
   onDelete: (id: string) => void;
@@ -552,7 +598,7 @@ function DeckList(props: {
   };
   return (
     <main>
-      <HeroStrip decks={props.decks} events={props.events} />
+      <HeroStrip decks={props.decks} events={props.events} faculty={props.faculty} />
 
       <form className="add-deck-form" onSubmit={submit}>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New deck name…" />
@@ -770,6 +816,13 @@ function StudySession(props: {
   const cardId = queue[index];
   const card = props.deck.cards.find((c) => c.id === cardId);
   const hasAI = aiConfigured(props.settings);
+  const done = !card || index >= queue.length;
+  // Picked when the session completes, stable across re-renders.
+  const endPhrase = useMemo(
+    () => (done ? sessionPhrase(props.settings.faculty) : ""),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [done],
+  );
 
   function next(card: Card, q: Quality) {
     props.onGrade(card, q);
@@ -777,16 +830,18 @@ function StudySession(props: {
     setIndex((i) => i + 1);
   }
 
-  if (!card || index >= queue.length) {
+  if (done) {
     return (
       <main className="study done">
         <span className="done-orn" aria-hidden="true">⁂</span>
         <h2>Session complete</h2>
         <p>You reviewed {queue.length} card{queue.length === 1 ? "" : "s"}. Progress saved — see your dashboard.</p>
+        <p className="session-motto">“{endPhrase}”</p>
         <button className="primary" onClick={props.onExit}>Back to deck</button>
       </main>
     );
   }
+  if (!card) return null;
 
   async function explain(mode: ExplainMode) {
     if (!card) return;
@@ -1100,6 +1155,24 @@ function ProfileView({ settings, onChange, onLoadDemo, onReplayTour }: { setting
         >
           <IconDownload size={14} /> {t("set.export")}
         </button>
+      </section>
+
+      <section className="card-box">
+        <h3>📚 Il tuo corso</h3>
+        <p className="hint" style={{ marginBottom: ".7rem" }}>
+          Dà il tema alle frasi motivazionali dell'app.
+        </p>
+        <div className="faculty-grid compact">
+          {FACULTIES.map((f) => (
+            <button
+              key={f.id}
+              className={settings.faculty === f.id ? "faculty-pill on" : "faculty-pill"}
+              onClick={() => onChange({ ...settings, faculty: f.id })}
+            >
+              <span aria-hidden="true">{f.emoji}</span> {f.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="card-box">

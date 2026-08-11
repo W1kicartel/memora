@@ -53,6 +53,12 @@ export interface Settings {
   theme: "light" | "dark" | "pink";
   /** UI language. */
   lang: Lang;
+  /**
+   * Degree family from the first-launch mini questionnaire — themes the
+   * motivational phrases (see motivation.ts). Absent = not asked yet;
+   * "altro" = answered "other / not a student".
+   */
+  faculty?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

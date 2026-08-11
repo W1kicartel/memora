@@ -3295,3 +3295,30 @@ body::before, body::after { display: none; }
 }
 .wg-msg-meta .avatar-mini { width: 16px; height: 16px; vertical-align: -3px; }
 .lb-avatar { width: 22px; height: 22px; }
+
+/* ── motivational phrases + faculty questionnaire ── */
+.hero-motto {
+  margin: .9rem 0 0;
+  font-style: italic; font-size: .92rem;
+  color: var(--fg-muted);
+}
+.session-motto {
+  font-style: italic; color: var(--accent);
+  margin: .3rem 0 1rem; font-size: .95rem;
+}
+.faculty-panel { width: min(560px, 94vw); }
+.faculty-head { display: flex; gap: .9rem; align-items: center; margin-bottom: .9rem; }
+.faculty-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: .45rem;
+}
+.faculty-grid.compact { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.faculty-pill {
+  display: flex; align-items: center; gap: .45rem;
+  padding: .55rem .7rem; font-size: .86rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-1); border-radius: var(--r-sm);
+  text-align: left;
+}
+.faculty-pill:hover { border-color: var(--accent); }
+.faculty-pill.on { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); font-weight: 700; }

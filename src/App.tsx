@@ -28,6 +28,7 @@ import { aiConfigured, statusLabel, useOllamaStatus, retryOllama, DEFAULT_OLLAMA
 import { IS_SOCIAL, APP_NAME } from "./edition";
 import { fetchUnseenNotices, markNoticeSeen, type Notice } from "./notices";
 import { SUPPORT_CATEGORIES, sendSupport, type SupportCategory } from "./support";
+import { GuidedTour, tourPending, resetTour } from "./tour";
 
 /* ─── helpers ───────────────────────────────────────────────────────────── */
 
@@ -67,6 +68,8 @@ export function App() {
   const [view, setView] = useState<View>({ tab: "decks" });
   const [navOpen, setNavOpen] = useState(true);
   const [supportOpen, setSupportOpen] = useState(false);
+  // First launch → Graffetta's guided tour (replayable from Profile).
+  const [tourOpen, setTourOpen] = useState(() => tourPending());
   // App hosts the language provider, so it translates directly rather than via useT().
   const t: TFn = (key, params) => translate(settings.lang, key, params);
 
@@ -189,6 +192,7 @@ export function App() {
           {NAV.map((n) => (
             <button
               key={n.tab}
+              data-tour={n.tab}
               className={
                 view.tab === n.tab || (n.tab === "decks" && view.tab === "deck")
                   ? "nav-item on" : "nav-item"
@@ -201,6 +205,7 @@ export function App() {
           ))}
           <button
             className="nav-item nav-support"
+            data-tour="support"
             onClick={() => setSupportOpen(true)}
             aria-haspopup="dialog"
           >
@@ -210,6 +215,13 @@ export function App() {
         </nav>
 
         {supportOpen && <SupportPanel onClose={() => setSupportOpen(false)} />}
+
+        {tourOpen && (
+          <GuidedTour
+            onNavigate={(tab) => { setNavOpen(true); setView({ tab }); }}
+            onDone={() => { setTourOpen(false); setView({ tab: "decks" }); }}
+          />
+        )}
 
         {view.tab === "decks" && (
           <DeckList
@@ -266,7 +278,14 @@ export function App() {
             onGoSettings={() => setView({ tab: "settings" })}
           />
         )}
-        {view.tab === "settings"  && <ProfileView settings={settings} onChange={setSettings} onLoadDemo={loadDemo} />}
+        {view.tab === "settings"  && (
+          <ProfileView
+            settings={settings}
+            onChange={setSettings}
+            onLoadDemo={loadDemo}
+            onReplayTour={() => { resetTour(); setView({ tab: "decks" }); setTourOpen(true); }}
+          />
+        )}
 
         <footer className="footer">
           {IS_SOCIAL
@@ -877,7 +896,7 @@ function StudySession(props: {
 
 const MODELS = ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"];
 
-function ProfileView({ settings, onChange, onLoadDemo }: { settings: Settings; onChange: (s: Settings) => void; onLoadDemo: () => void }) {
+function ProfileView({ settings, onChange, onLoadDemo, onReplayTour }: { settings: Settings; onChange: (s: Settings) => void; onLoadDemo: () => void; onReplayTour: () => void }) {
   const t = useT();
   const [key, setKey] = useState(settings.apiKey);
   const provider = settings.provider ?? "ollama";
@@ -1034,6 +1053,14 @@ function ProfileView({ settings, onChange, onLoadDemo }: { settings: Settings; o
         >
           <IconDownload size={14} /> {t("set.export")}
         </button>
+      </section>
+
+      <section className="card-box">
+        <h3>📎 Tour guidato</h3>
+        <p className="hint" style={{ marginBottom: ".7rem" }}>
+          Rifai il giro dell'app con Graffetta, la guida del primo avvio.
+        </p>
+        <button className="ghost" onClick={onReplayTour}>Rivedi il tour</button>
       </section>
 
       <section className="card-box">

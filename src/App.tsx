@@ -347,14 +347,14 @@ function UpdateToast() {
       <span className="update-toast-orn" aria-hidden="true">✦</span>
       {status.phase === "downloading" ? (
         <p>
-          Nuova versione{status.version ? ` ${status.version}` : ""} in arrivo…
+          chiedere è gratis{status.version ? ` — ${status.version}` : ""} in arrivo…
           {status.progress != null && ` ${Math.round(status.progress)}%`}
         </p>
       ) : status.phase === "manual" ? (
         <>
           {/* macOS: no silent install without an Apple certificate — download
               the new installer and reinstall (data is kept). */}
-          <p>È disponibile Memora{status.version ? ` ${status.version}` : ""}</p>
+          <p>chiedere è gratis{status.version ? ` — ${status.version}` : ""} disponibile</p>
           <button className="primary small" onClick={() => window.memoraAI?.openUpdateDownload?.()}>
             Scarica l'aggiornamento
           </button>

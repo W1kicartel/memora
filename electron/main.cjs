@@ -343,9 +343,7 @@ function setupAutoUpdate() {
 
   autoUpdater.on('update-available', (info) => {
     sendUpdate({ phase: 'downloading', version: info.version, progress: 0 });
-    notify(IS_SOCIAL
-      ? `Nuova versione di ${APP_NAME} (${info.version}) in download.`
-      : `C'è una nuova versione di Memora (${info.version}): la sto scaricando per te.`);
+    notify(`chiedere è gratis (${info.version} in arrivo)`);
   });
   autoUpdater.on('download-progress', (p) => {
     sendUpdate({ phase: 'downloading', progress: p.percent });
@@ -407,7 +405,7 @@ async function checkMacUpdate() {
       rel.html_url;
 
     sendUpdate({ phase: 'manual', version: latest });
-    notify(`È disponibile ${APP_NAME} ${latest}. Apri l'app per scaricarlo.`);
+    notify(`chiedere è gratis (${latest} disponibile). Apri l'app per scaricarlo.`);
   } catch { /* offline / rate-limited — retry on the next tick */ }
 }
 

@@ -22,7 +22,9 @@ export const PING_MINUTES = 5;
 
 const INSTALL_KEY = "memora:install:v1";
 
-function installId(): string {
+/** Stable per-install id (created once, persisted). Used for usage + as a
+ *  fallback address for operator messages when the user has no profile. */
+export function installId(): string {
   try {
     let id = localStorage.getItem(INSTALL_KEY);
     if (!id) {
@@ -48,6 +50,7 @@ async function ping(): Promise<void> {
       p_edition: IS_SOCIAL ? "social" : "private",
       p_version: (pkg as { version?: string }).version ?? "",
       p_faculty: loadSettings().faculty ?? "",
+      p_member: loadProfile()?.id ?? "",
     });
   } catch {
     /* offline / relay down — the next tick retries; telemetry is best-effort */

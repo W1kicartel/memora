@@ -3322,3 +3322,30 @@ body::before, body::after { display: none; }
 }
 .faculty-pill:hover { border-color: var(--accent); }
 .faculty-pill.on { border-color: var(--accent); background: var(--accent-wash); color: var(--accent); font-weight: 700; }
+
+/* ── support chat (with Batman) ── */
+.support-panel { display: flex; flex-direction: column; max-height: 82vh; }
+.support-chat {
+  flex: 1; overflow-y: auto; min-height: 220px; max-height: 46vh;
+  display: flex; flex-direction: column; gap: .6rem;
+  padding: .6rem .2rem; margin: .5rem 0;
+  border-top: 1px solid var(--border-0); border-bottom: 1px solid var(--border-0);
+}
+.sup-msg { display: flex; gap: .5rem; max-width: 85%; }
+.sup-msg.mine { align-self: flex-end; }
+.sup-msg.batman { align-self: flex-start; }
+.sup-pfp { flex: 0 0 auto; }
+.bat-avatar { border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.25); display: block; }
+.sup-bubble {
+  padding: .5rem .75rem; border-radius: 1rem; font-size: .88rem; line-height: 1.4;
+  background: var(--bg-deep); border: 1px solid var(--border-1);
+  border-bottom-left-radius: .25rem;
+}
+.sup-msg.mine .sup-bubble {
+  background: var(--accent-wash); border-color: var(--border-a);
+  border-radius: 1rem; border-bottom-right-radius: .25rem;
+}
+.sup-bubble p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.sup-author { font-size: .72rem; font-weight: 700; color: var(--accent); display: block; margin-bottom: .1rem; letter-spacing: .02em; }
+.sup-when { font-size: .68rem; color: var(--fg-subtle); display: block; margin-top: .2rem; }
+.support-compose select { width: 100%; font-size: .82rem; }

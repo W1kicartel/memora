@@ -157,6 +157,13 @@
   .kind { font-size: .64rem; letter-spacing: .06em; color: var(--rose); margin-right: .4rem; text-transform: uppercase; }
   .hidden { display: none; }
   label.pick { display: block; font-size: .86rem; padding: .2rem 0; cursor: pointer; }
+  .th-chat { display: flex; flex-direction: column; gap: .5rem; padding: .6rem; max-height: 380px; }
+  .th-msg { display: flex; gap: .5rem; max-width: 82%; }
+  .th-msg.user { align-self: flex-end; }
+  .th-msg.bat { align-self: flex-start; }
+  .th-b { background: var(--elevated); border: 1px solid var(--border); border-radius: 12px; padding: .5rem .7rem; font-size: .87rem; line-height: 1.4; white-space: pre-wrap; }
+  .th-msg.user .th-b { background: rgba(255,77,148,.12); border-color: rgba(255,77,148,.3); }
+  .th-t { font-size: .68rem; margin-top: .25rem; }
   .toast { position: fixed; right: 1.5rem; bottom: 1.5rem; background: var(--surface); border: 1px solid var(--line-2);
     border-left: 3px solid var(--gold); border-radius: 12px; padding: .8rem 1.1rem; font-size: .88rem;
     box-shadow: 0 20px 50px rgba(0,0,0,.5); animation: rise .35s both; z-index: 50; }
@@ -263,7 +270,7 @@
         <div class="grid2b">
           <div class="card">
             <h3>Scrivi nel gruppo</h3>
-            <input id="gcAuthor" placeholder="Da…" value="Staff Memora" style="width:100%; margin-bottom:.4rem">
+            <input id="gcAuthor" placeholder="Da…" value="batman" style="width:100%; margin-bottom:.4rem">
             <textarea id="gcText" rows="3" placeholder="Messaggio…"></textarea>
             <div class="row" style="margin-top:.5rem"><button class="btn primary" onclick="postChat()">Invia</button><span id="gcState" class="muted"></span></div>
             <div class="scroll" id="gdChat" style="margin-top:.8rem"></div>
@@ -283,10 +290,19 @@
     <!-- SUPPORT -->
     <section id="v-support" class="hidden">
       <h1 class="page-title">Supporto</h1>
-      <p class="page-sub">Quello che gli utenti ti scrivono.</p>
+      <p class="page-sub">Conversazioni con gli utenti. Rispondi come batman 🦇 — la vede nella sua chat in-app.</p>
       <div class="card">
-        <table id="supportTable"><thead><tr><th>Quando</th><th>Chi</th><th>Motivo</th><th>Messaggio</th><th></th></tr></thead><tbody></tbody></table>
+        <table id="supportTable"><thead><tr><th>Utente</th><th>Messaggi</th><th>Ed./Ver.</th><th>Ultimo</th></tr></thead><tbody></tbody></table>
         <p class="muted hidden" id="supportEmpty">Nessun messaggio.</p>
+      </div>
+      <div id="threadBox" class="card hidden">
+        <div class="row spread"><h3 id="thTitle" style="margin:0"></h3></div>
+        <div class="scroll th-chat" id="thChat" style="margin:.7rem 0"></div>
+        <div class="row" style="gap:.4rem">
+          <input id="thReply" placeholder="Rispondi come batman…" style="flex:1" onkeydown="if(event.key==='Enter')sendReply()">
+          <button class="btn primary" onclick="sendReply()">Invia</button>
+          <span id="thState" class="muted"></span>
+        </div>
       </div>
     </section>
 
@@ -298,7 +314,7 @@
         <input id="nTitle" placeholder="Titolo" style="width:100%; margin-bottom:.5rem">
         <textarea id="nBody" rows="3" placeholder="Testo…"></textarea>
         <div class="row" style="margin:.6rem 0">
-          <select id="nTargetType" onchange="renderTargetPick()"><option value="all">A tutti</option><option value="groups">A gruppi</option><option value="members">A membri</option></select>
+          <select id="nTargetType" onchange="renderTargetPick()"><option value="all">A tutti</option><option value="groups">A gruppi</option><option value="users">A utenti dell'app</option></select>
           <button class="btn primary" onclick="sendNotice()">Invia</button><span id="sendState" class="muted"></span>
         </div>
         <div id="targetPick"></div>
@@ -471,32 +487,99 @@ async function addEvent(){
 }
 
 const CAT={bug:"🐞 Bug",idea:"💡 Idea",question:"❓ Aiuto",content:"🚩 Contenuti",data:"💾 Dati",other:"✉️ Altro"};
+const BAT = '<svg width="22" height="22" viewBox="0 0 100 100" style="border-radius:50%;vertical-align:middle"><circle cx="50" cy="50" r="50" fill="#111318"/><ellipse cx="50" cy="53" rx="40" ry="24" fill="#f4c531"/><path d="M50 36 C48 40 47 41 46 43 C42 37 33 38 26 45 C31 44 33 48 31 52 C27 50 23 52 21 56 C30 54 39 56 45 59 L50 66 L55 59 C61 56 70 54 79 56 C77 52 73 50 69 52 C67 48 69 44 74 45 C67 38 58 37 54 43 C53 41 52 40 50 36 Z" fill="#111318"/></svg>';
+let TICKETS = [], NOTICES = [], OPEN_USER = null;
+
+// A "user" for the support view: keyed by install id (fallback member id).
+function userKeyOf(t){ return t.install_id || ('m:'+t.member_id); }
+
 async function loadSupport(){
-  const rows=await rpc("admin_list_support",{p_key:key()})||[];
-  $("supportTable").querySelector("tbody").innerHTML=rows.map(t=>`<tr><td class="muted">${new Date(t.created_at).toLocaleString()}</td>
-    <td>${esc(t.member_name||"anonimo")}<div class="muted">${esc(t.edition)} ${esc(t.app_version)}</div></td><td><span class="chip">${CAT[t.category]||esc(t.category)}</span></td>
-    <td style="max-width:320px">${esc(t.message)}</td><td style="white-space:nowrap">${t.member_id?`<button class="btn ghost" onclick="replyTo('${esc(t.member_id)}','${esc(t.member_name||"utente")}')">Rispondi</button>`:""} <button class="btn danger" onclick="delSupport('${t.id}')">×</button></td></tr>`).join("");
-  $("supportEmpty").classList.toggle("hidden", rows.length>0);
+  TICKETS = await rpc("admin_list_support",{p_key:key()})||[];
+  NOTICES = await rpc("admin_list_notices",{p_key:key()})||[];
+  // Group tickets into conversations, newest activity first.
+  const convos = new Map();
+  for(const t of TICKETS){
+    const k = userKeyOf(t);
+    const c = convos.get(k) || { key:k, install:t.install_id, member:t.member_id, name:t.member_name||"anonimo", edition:t.edition, version:t.app_version, last:t.created_at, count:0 };
+    c.count++; if(t.created_at > c.last) c.last = t.created_at;
+    convos.set(k, c);
+  }
+  const list = [...convos.values()].sort((a,b)=> new Date(b.last)-new Date(a.last));
+  $("supportTable").querySelector("tbody").innerHTML = list.map(c=>`<tr class="clickable" onclick="openThread('${esc(c.key)}')">
+    <td><strong>${esc(c.name)}</strong> <span class="muted">apri →</span></td>
+    <td><span class="chip">${c.count} msg</span></td>
+    <td class="muted">${esc(c.edition)} ${esc(c.version)}</td>
+    <td class="muted">${new Date(c.last).toLocaleString()}</td></tr>`).join("");
+  $("supportEmpty").classList.toggle("hidden", list.length>0);
+  if(OPEN_USER && convos.has(OPEN_USER)) renderThread(convos.get(OPEN_USER));
 }
-function replyTo(id,name){ EXTRA_MEMBERS.set(id,`${name} (supporto)`); show("notices"); $("nTargetType").value="members"; renderTargetPick(id); $("nTitle").value="Risposta al tuo messaggio"; $("nBody").focus(); }
+
+// Notices addressed to a given user (by install id or member id).
+function noticesFor(c){
+  return NOTICES.filter(n=>{
+    const t=n.target||{};
+    if(t.type==="installs") return (t.ids||[]).includes(c.install);
+    if(t.type==="members") return (t.ids||[]).includes(c.member);
+    return false;
+  });
+}
+
+function openThread(k){
+  OPEN_USER = k;
+  const c = [...TICKETS].filter(t=>userKeyOf(t)===k)[0];
+  if(!c) return;
+  renderThread({ key:k, install:c.install_id, member:c.member_id, name:c.member_name||"anonimo", edition:c.edition, version:c.app_version });
+  $("threadBox").classList.remove("hidden");
+  $("threadBox").scrollIntoView({behavior:"smooth"});
+}
+
+function renderThread(c){
+  $("thTitle").innerHTML = `💬 ${esc(c.name)} <span class="muted">— ${esc(c.edition)} ${esc(c.version)}</span>`;
+  const mine = TICKETS.filter(t=>userKeyOf(t)===c.key).map(t=>({role:"user", text:t.message, at:t.created_at, cat:t.category}));
+  const theirs = noticesFor(c).map(n=>({role:"batman", text:(n.body?n.title+"\n"+n.body:n.title), at:n.created_at}));
+  const msgs = [...mine, ...theirs].sort((a,b)=> new Date(a.at)-new Date(b.at));
+  $("thChat").innerHTML = msgs.map(m=> m.role==="user"
+    ? `<div class="th-msg user"><div class="th-b">${m.cat?`<span class="chip" style="font-size:.66rem">${CAT[m.cat]||m.cat}</span> `:""}${esc(m.text)}<div class="muted th-t">${new Date(m.at).toLocaleString()}</div></div></div>`
+    : `<div class="th-msg bat">${BAT}<div class="th-b"><span style="color:#f4c531;font-weight:700;font-size:.72rem">batman</span><br>${esc(m.text)}<div class="muted th-t">${new Date(m.at).toLocaleString()}</div></div></div>`
+  ).join("") || '<p class="muted" style="padding:.5rem">Nessun messaggio.</p>';
+  $("thChat").dataset.install = c.install||"";
+  $("thChat").dataset.member = c.member||"";
+}
+
+async function sendReply(){
+  const install = $("thChat").dataset.install, member = $("thChat").dataset.member;
+  const text = $("thReply").value.trim();
+  if(!text){ return; }
+  if(!install && !member){ $("thState").textContent="utente non raggiungibile (nessun id)"; return; }
+  const target = install ? {type:"installs", ids:[install]} : {type:"members", ids:[member]};
+  $("thState").textContent="invio…";
+  try{
+    await rpc("admin_send_notice",{p_key:key(),p_title:text,p_body:"",p_target:target});
+    $("thReply").value=""; $("thState").innerHTML='<span class="ok">✓ inviato come batman</span>';
+    toast("Risposta inviata 🦇");
+    await loadSupport();
+  }catch(e){ $("thState").innerHTML='<span class="err">✗ '+esc(e.message)+'</span>'; }
+}
 async function delSupport(id){ if(!confirm("Eliminare?"))return; await rpc("admin_delete_support",{p_key:key(),p_id:id}); loadSupport(); }
 
 function renderTargetPick(pre){
   const type=$("nTargetType").value, box=$("targetPick");
   if(type==="all"){ box.innerHTML=""; return; }
-  if(type==="groups"){ box.innerHTML=GROUPS.map(g=>`<label class="pick"><input type="checkbox" class="pickG" value="${esc(g.sync_id)}"> ${esc(g.name)}</label>`).join("")||'<p class="muted">Nessun gruppo.</p>'; }
-  else { const seen=new Map(EXTRA_MEMBERS); for(const g of GROUPS)for(const m of g.members||[])if(!seen.has(m.id))seen.set(m.id,`${m.name} (${g.name})`);
-    box.innerHTML=[...seen].map(([id,l])=>`<label class="pick"><input type="checkbox" class="pickM" value="${esc(id)}" ${pre===id?"checked":""}> ${esc(l)}</label>`).join("")||'<p class="muted">Nessun membro.</p>'; }
+  if(type==="groups"){ box.innerHTML=GROUPS.map(g=>`<label class="pick"><input type="checkbox" class="pickG" value="${esc(g.sync_id)}"> ${esc(g.name)}</label>`).join("")||'<p class="muted">Nessun gruppo.</p>'; return; }
+  // "users": every app user from telemetry, addressed by install id.
+  const rows = (USERS||[]).filter(u=>u.install_id);
+  box.innerHTML = rows.map(u=>`<label class="pick"><input type="checkbox" class="pickU" value="${esc(u.install_id)}" ${pre===u.install_id?"checked":""}> ${esc(u.member_name||"anonimo")} <span class="muted">${esc(u.faculty||"")} · ${esc(u.edition)}</span></label>`).join("")
+    || '<p class="muted">Nessun utente ancora — appariranno quando qualcuno apre l\'app aggiornata.</p>';
 }
 async function sendNotice(){
   const type=$("nTargetType").value; let target={type:"all"};
   if(type==="groups"){ const ids=[...document.querySelectorAll(".pickG:checked")].map(c=>c.value); if(!ids.length){$("sendState").textContent="seleziona un gruppo";return;} target={type:"groups",syncIds:ids}; }
-  else if(type==="members"){ const ids=[...document.querySelectorAll(".pickM:checked")].map(c=>c.value); if(!ids.length){$("sendState").textContent="seleziona un membro";return;} target={type:"members",ids}; }
+  else if(type==="users"){ const ids=[...document.querySelectorAll(".pickU:checked")].map(c=>c.value); if(!ids.length){$("sendState").textContent="seleziona un utente";return;} target={type:"installs",ids}; }
   $("sendState").textContent="invio…";
-  try{ await rpc("admin_send_notice",{p_key:key(),p_title:$("nTitle").value,p_body:$("nBody").value,p_target:target}); $("sendState").innerHTML='<span class="ok">✓ inviata</span>'; $("nTitle").value="";$("nBody").value=""; loadSent(); toast("Notifica inviata"); }
+  try{ await rpc("admin_send_notice",{p_key:key(),p_title:$("nTitle").value,p_body:$("nBody").value,p_target:target}); $("sendState").innerHTML='<span class="ok">✓ inviata come batman 🦇</span>'; $("nTitle").value="";$("nBody").value=""; loadSent(); toast("Notifica inviata"); }
   catch(e){ $("sendState").innerHTML='<span class="err">✗ '+esc(e.message)+'</span>'; }
 }
-function descTarget(t){ if(!t||t.type==="all")return "tutti"; if(t.type==="groups")return `${(t.syncIds||[]).length} gruppi`; return `${(t.ids||[]).length} membri`; }
+function descTarget(t){ if(!t||t.type==="all")return "tutti"; if(t.type==="groups")return `${(t.syncIds||[]).length} gruppi`; if(t.type==="installs")return `${(t.ids||[]).length} utenti`; return `${(t.ids||[]).length} membri`; }
 async function loadSent(){
   const rows=await rpc("admin_list_notices",{p_key:key()})||[];
   $("sentTable").querySelector("tbody").innerHTML=rows.map(n=>`<tr><td class="muted">${new Date(n.created_at).toLocaleString()}</td><td><strong>${esc(n.title)}</strong><div class="muted">${esc(n.body)}</div></td><td class="muted">${descTarget(n.target)}</td><td><button class="btn danger" onclick="delNotice('${n.id}')">×</button></td></tr>`).join("");

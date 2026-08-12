@@ -9,6 +9,7 @@
 
 import { syncRpc } from "./sync";
 import { loadProfile, loadGroups } from "./workgroup";
+import { installId } from "./usage";
 
 export interface Notice {
   id: string;
@@ -46,6 +47,7 @@ export async function fetchUnseenNotices(): Promise<Notice[]> {
   const all = await syncRpc<Notice[] | null>("get_notices", {
     p_member_id: profile?.id ?? "",
     p_sync_ids: syncIds,
+    p_install_id: installId(),
   });
   const seen = loadSeen();
   return (all ?? []).filter((n) => !seen.has(n.id)).reverse();

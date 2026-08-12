@@ -32,7 +32,7 @@ import { initCardTilt, initRipple, initMagnetic } from "./cinematic";
 import { aiConfigured, statusLabel, useOllamaStatus, retryOllama, DEFAULT_OLLAMA_MODEL } from "./ollama";
 import { IS_SOCIAL, APP_NAME } from "./edition";
 import { fetchUnseenNotices, markNoticeSeen, type Notice } from "./notices";
-import { SUPPORT_CATEGORIES, sendSupport, type SupportCategory } from "./support";
+import { SUPPORT_CATEGORIES, sendSupport, fetchSupportThread, type SupportCategory, type ThreadMessage } from "./support";
 import { GuidedTour, tourPending, resetTour } from "./tour";
 
 /* ─── helpers ───────────────────────────────────────────────────────────── */
@@ -376,28 +376,64 @@ function UpdateToast() {
 
 /* ─── Support panel ──────────────────────────────────────────────────────── */
 
+/** The operator's avatar in the support chat: the Bat-signal. */
+export function BatmanAvatar({ size = 30 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="bat-avatar">
+      <circle cx="50" cy="50" r="50" fill="#111318" />
+      <ellipse cx="50" cy="53" rx="40" ry="24" fill="#f4c531" />
+      <path
+        d="M50 36 C48 40 47 41 46 43 C42 37 33 38 26 45 C31 44 33 48 31 52 C27 50 23 52 21 56 C30 54 39 56 45 59 L50 66 L55 59 C61 56 70 54 79 56 C77 52 73 50 69 52 C67 48 69 44 74 45 C67 38 58 37 54 43 C53 41 52 40 50 36 Z"
+        fill="#111318"
+      />
+    </svg>
+  );
+}
+
 /**
- * The line to the operator: pick a reason, write, send. Tickets land on the
- * admin dashboard; replies come back as in-app notices, so there's nothing
- * else to configure — no email, no account.
+ * Support is a conversation now: the user writes, the operator (Batman)
+ * replies, and both sides see the thread. Tickets + replies come back merged
+ * in time order (support.ts). Replies are delivered as notices under the hood.
  */
 function SupportPanel({ onClose }: { onClose: () => void }) {
-  const [category, setCategory] = useState<SupportCategory>("bug");
+  const [thread, setThread] = useState<ThreadMessage[]>([]);
+  const [category, setCategory] = useState<SupportCategory>("question");
   const [message, setMessage] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const load = () => { fetchSupportThread().then(setThread).catch(() => { /* offline */ }); };
+
+  useEffect(() => {
+    load();
+    const id = window.setInterval(load, 15_000); // pick up Batman's replies
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread.length]);
 
   const send = async () => {
-    if (!message.trim()) return;
-    setState("sending");
+    if (!message.trim() || sending) return;
+    setSending(true); setError("");
+    const text = message.trim();
     try {
-      await sendSupport(category, message);
-      setState("sent");
+      await sendSupport(category, text);
+      setMessage("");
+      // optimistic: show it immediately, then reconcile on the next load
+      setThread((t) => [...t, { id: `local-${Date.now()}`, role: "me", text, at: Date.now() }]);
+      setTimeout(load, 600);
     } catch (e) {
       setError(e instanceof Error ? e.message : "invio non riuscito");
-      setState("error");
+    } finally {
+      setSending(false);
     }
   };
+
+  const fmtAt = (at: number) => new Date(at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="support-overlay" role="dialog" aria-modal="true" aria-label="Supporto" onClick={onClose}>
@@ -407,52 +443,44 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
           <button className="icon" title="Chiudi" onClick={onClose}><IconClose size={13} /></button>
         </div>
 
-        {state === "sent" ? (
-          <div className="support-sent">
-            <p><IconCheck size={15} /> <strong>Ricevuto!</strong></p>
-            <p className="hint">
-              Grazie — leggo tutto. Se serve una risposta, ti arriverà come
-              notifica qui nell'app.
+        <div className="support-chat" ref={listRef}>
+          {thread.length === 0 && (
+            <p className="hint" style={{ textAlign: "center", padding: "1rem" }}>
+              Scrivi pure: problemi, idee, segnalazioni. Ti rispondo qui. 🦇
             </p>
-            <button className="primary" onClick={onClose}>Chiudi</button>
-          </div>
-        ) : (
-          <>
-            <p className="hint" style={{ margin: ".4rem 0 .7rem" }}>
-              Dimmi tutto: problemi, idee, segnalazioni. Rispondo con una
-              notifica direttamente nell'app.
-            </p>
-            <label className="field-label">Motivo del contatto</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as SupportCategory)}
-              style={{ width: "100%", marginBottom: ".6rem" }}
-            >
-              {SUPPORT_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>{c.label}</option>
-              ))}
-            </select>
-            <textarea
+          )}
+          {thread.map((m) => (
+            <div key={m.id} className={m.role === "me" ? "sup-msg mine" : "sup-msg batman"}>
+              {m.role === "batman" && <span className="sup-pfp"><BatmanAvatar size={26} /></span>}
+              <div className="sup-bubble">
+                {m.role === "batman" && <span className="sup-author">batman</span>}
+                <p>{m.text}</p>
+                <span className="sup-when">{fmtAt(m.at)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="support-compose">
+          <select value={category} onChange={(e) => setCategory(e.target.value as SupportCategory)} title="Motivo">
+            {SUPPORT_CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+          <div className="row" style={{ marginTop: ".4rem", gap: ".4rem" }}>
+            <input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={
-                category === "bug" ? "Cosa stavi facendo? Cosa ti aspettavi? Cosa è successo invece?"
-                : category === "idea" ? "Racconta la funzione dei tuoi sogni…"
-                : category === "content" ? "In quale gruppo? Cosa hai visto?"
-                : "Scrivi qui…"
-              }
-              rows={5}
-              style={{ width: "100%", resize: "vertical" }}
+              placeholder="Scrivi un messaggio…"
+              onKeyDown={(e) => e.key === "Enter" && send()}
+              style={{ flex: 1 }}
             />
-            {state === "error" && <p className="error-text">Invio non riuscito: {error}. Controlla la connessione e riprova.</p>}
-            <div className="row" style={{ marginTop: ".7rem", justifyContent: "flex-end" }}>
-              <button className="ghost" onClick={onClose}>Annulla</button>
-              <button className="primary" disabled={!message.trim() || state === "sending"} onClick={send}>
-                {state === "sending" ? "Invio…" : "Invia"}
-              </button>
-            </div>
-          </>
-        )}
+            <button className="primary" disabled={!message.trim() || sending} onClick={send}>
+              {sending ? "…" : "Invia"}
+            </button>
+          </div>
+          {error && <p className="error-text" style={{ marginTop: ".4rem" }}>{error}</p>}
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,18 @@ contextBridge.exposeInMainWorld('memoraAI', {
     return () => ipcRenderer.removeListener('ollama:status', listener);
   },
   chat: (body) => ipcRenderer.invoke('ollama:chat', body),
+  // Streaming chat: tokens arrive via per-request events; resolves at the end.
+  chatStream: (body, onToken) => new Promise((resolve, reject) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const onData = (_e, chunk) => onToken(chunk);
+    const cleanup = () => {
+      ipcRenderer.removeListener(`ollama:stream:data:${id}`, onData);
+    };
+    ipcRenderer.on(`ollama:stream:data:${id}`, onData);
+    ipcRenderer.once(`ollama:stream:done:${id}`, (_e, result) => { cleanup(); resolve(result); });
+    ipcRenderer.once(`ollama:stream:error:${id}`, (_e, msg) => { cleanup(); reject(new Error(msg)); });
+    ipcRenderer.send('ollama:chatStream', { id, body });
+  }),
   retryOllama: () => ipcRenderer.invoke('ollama:retry'),
   ensureOllama: () => ipcRenderer.invoke('ollama:ensure'),
   authorizeSpotify: (authUrl, port) => ipcRenderer.invoke('spotify:authorize', { authUrl, port }),

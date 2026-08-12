@@ -446,6 +446,48 @@ ipcMain.handle('apple:fetch', async (_event, url) => {
 
 ipcMain.handle('ollama:getStatus', () => status);
 
+// Streaming chat: fetch the NDJSON stream from Ollama and forward each token
+// to the renderer over per-request events. Same behaviour on Windows and mac.
+ipcMain.on('ollama:chatStream', async (event, { id, body }) => {
+  const wc = event.sender;
+  const send = (suffix, payload) => { if (!wc.isDestroyed()) wc.send(`ollama:stream:${suffix}:${id}`, payload); };
+  try {
+    const res = await fetch(`${OLLAMA}/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...body, stream: true }),
+    });
+    if (!res.ok || !res.body) {
+      let detail = `HTTP ${res.status}`;
+      try { detail = (await res.json()).error || detail; } catch { /* keep status */ }
+      throw new Error(detail);
+    }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', full = '', stopReason = 'end_turn';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        let j;
+        try { j = JSON.parse(line); } catch { continue; }
+        if (j.error) throw new Error(j.error);
+        const chunk = j.message && j.message.content ? j.message.content : '';
+        if (chunk) { full += chunk; send('data', chunk); }
+        if (j.done_reason === 'length') stopReason = 'max_tokens';
+      }
+    }
+    send('done', { text: full, stopReason });
+  } catch (e) {
+    send('error', String((e && e.message) || e));
+  }
+});
+
 // Chat proxy: keeps the renderer free of CORS concerns in the packaged app.
 ipcMain.handle('ollama:chat', async (_event, body) => {
   try {

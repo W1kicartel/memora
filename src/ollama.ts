@@ -48,6 +48,8 @@ interface Bridge {
   getStatus(): Promise<OllamaStatus>;
   onStatus(cb: (s: OllamaStatus) => void): () => void;
   chat(body: unknown): Promise<unknown>;
+  /** Streaming chat: `onToken` fires per chunk; resolves with the full reply. */
+  chatStream?(body: unknown, onToken: (t: string) => void): Promise<{ text: string; stopReason: string }>;
   /** Re-run the install/start/pull bootstrap after a failure. */
   retryOllama?(): Promise<void>;
   /** Start the bootstrap on demand (called when local AI is selected). */
@@ -131,6 +133,64 @@ export async function ollamaChat(
   // Anthropic's "max_tokens", which drives the auto-continue loop upstream.
   const stopReason = data.done_reason === "length" ? "max_tokens" : "end_turn";
   return { text, stopReason };
+}
+
+/**
+ * Streaming variant: same request, but tokens arrive as they're generated and
+ * `onToken` fires for each. In the desktop app the main process streams over
+ * IPC (no CORS); in a dev browser we read the NDJSON stream directly.
+ */
+export async function ollamaChatStream(
+  model: string,
+  messages: OllamaMsg[],
+  opts: { maxTokens?: number; temperature?: number } = {},
+  onToken: (t: string) => void,
+): Promise<{ text: string; stopReason: string }> {
+  const body = {
+    model,
+    messages,
+    keep_alive: "30m",
+    options: {
+      temperature: opts.temperature ?? 0.4,
+      num_predict: opts.maxTokens ?? 1024,
+      num_ctx: 4096,
+    },
+  };
+
+  if (window.memoraAI?.chatStream) {
+    return window.memoraAI.chatStream(body, onToken);
+  }
+
+  // Dev/browser: read the streamed NDJSON directly (Ollama allows localhost).
+  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let full = "";
+  let stopReason = "end_turn";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let j: OllamaChatReply;
+      try { j = JSON.parse(line) as OllamaChatReply; } catch { continue; }
+      if (j.error) throw new Error(j.error);
+      const chunk = j.message?.content ?? "";
+      if (chunk) { full += chunk; onToken(chunk); }
+      if (j.done_reason === "length") stopReason = "max_tokens";
+    }
+  }
+  return { text: full, stopReason };
 }
 
 /* ─── status ─────────────────────────────────────────────────────────────── */

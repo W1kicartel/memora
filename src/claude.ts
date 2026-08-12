@@ -13,7 +13,7 @@ import {
   CARD_FORMAT_MIX,
 } from "./engine";
 
-import { ollamaChat, DEFAULT_OLLAMA_MODEL, OLLAMA_FALLBACK_MODEL, type OllamaMsg } from "./ollama";
+import { ollamaChat, ollamaChatStream, DEFAULT_OLLAMA_MODEL, OLLAMA_FALLBACK_MODEL, type OllamaMsg } from "./ollama";
 import { learnerDirective } from "./learner";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
@@ -47,6 +47,8 @@ interface CallOptions {
   maxTokens?: number;
   temperature?: number;
   attachments?: Attachment[];
+  /** When set (local AI only), tokens stream in via this callback as generated. */
+  onToken?: (chunk: string) => void;
 }
 
 /** Build the Anthropic `content` array: attachment blocks first, then the prompt. */
@@ -128,7 +130,9 @@ async function callClaudeRaw(
     const chatOpts = { maxTokens: opts.maxTokens, temperature: opts.temperature };
     let reply: { text: string; stopReason: string };
     try {
-      reply = await ollamaChat(model, msgs, chatOpts);
+      reply = opts.onToken
+        ? await ollamaChatStream(model, msgs, chatOpts, opts.onToken)
+        : await ollamaChat(model, msgs, chatOpts);
     } catch (e) {
       if (e instanceof ClaudeError) throw e;
       const detail = e instanceof Error ? e.message : String(e);
@@ -382,6 +386,7 @@ export async function summarize(
   level: StudyLevel,
   subject: StudySubject,
   attachments: Attachment[] = [],
+  onToken?: (chunk: string) => void,
 ): Promise<string> {
   const hasSource = attachments.length > 0 || topicOrText.trim().length > 0;
   const source = attachments.length ? "i file allegati" : "il seguente materiale/argomento";
@@ -417,6 +422,7 @@ Gli appunti devono bastare per studiare senza tornare al testo originale.`;
       hasSource,
     )),
     attachments,
+    onToken,
   });
 }
 
@@ -629,6 +635,7 @@ export async function extraCommand(
   level: StudyLevel,
   subject: StudySubject,
   attachments: Attachment[] = [],
+  onToken?: (chunk: string) => void,
 ): Promise<string> {
   const hasSource = attachments.length > 0 || topic.trim().length > 0;
   const source = attachments.length ? "i file allegati" : "le tue conoscenze di riferimento del corso";
@@ -649,5 +656,6 @@ export async function extraCommand(
       groundingDirective(hasSource),
     ].join("\n")),
     attachments,
+    onToken,
   });
 }

@@ -379,9 +379,14 @@ function Summarizer({ settings, level, subject }: { settings: Settings; level: S
         <button
           className="primary"
           disabled={!canSummarize}
-          onClick={() => run(async () => setOut(await summarize(settings, text, level, subject, atts)))}
+          onClick={() => run(async () => {
+            setOut("");
+            // Stream tokens in as they're generated (local AI); Claude fills in at the end.
+            const full = await summarize(settings, text, level, subject, atts, (chunk) => setOut((o) => o + chunk));
+            setOut(full);
+          })}
         >
-          {loading ? "Generazione appunti…" : "Genera appunti"}
+          {loading ? "Sto scrivendo gli appunti…" : "Genera appunti"}
         </button>
         {out && <PdfButton onClick={() => exportNode(`Appunti — ${title()}`, outRef.current)} />}
       </div>
@@ -613,9 +618,13 @@ function ExtraPanel({ settings, level, subject }: { settings: Settings; level: S
         <button
           className="primary"
           disabled={!canRun}
-          onClick={() => run(async () => setOut(await extraCommand(settings, cmd, topic, level, subject, atts)))}
+          onClick={() => run(async () => {
+            setOut("");
+            const full = await extraCommand(settings, cmd, topic, level, subject, atts, (chunk) => setOut((o) => o + chunk));
+            setOut(full);
+          })}
         >
-          {loading ? "Generazione…" : `Genera ${EXTRA_META[cmd].label.toLowerCase()}`}
+          {loading ? "Sto scrivendo…" : `Genera ${EXTRA_META[cmd].label.toLowerCase()}`}
         </button>
         {out && <PdfButton onClick={() => exportNode(`${EXTRA_META[cmd].label} — ${(topic.trim() || "argomento").slice(0, 50)}`, outRef.current)} />}
       </div>

@@ -3,7 +3,8 @@ import {
   loadMusic, saveMusic, allTracks,
   startSpotifyAuth, ensureFreshAuth, fetchLibrary, saveToMemoraPlaylist,
   fetchApplePlaylist, refreshAppleLibrary,
-  dailyIndex, spotifyTrackEmbed, appleEmbedUrl, appleTrackId,
+  dailyIndex, daySequential, spotifyTrackEmbed, appleEmbedUrl, appleTrackId,
+  deezerEmbedUrl, deezerTrackId,
   MusicError, MEMORA_PLAYLIST, LOOPBACK_REDIRECT,
   type MusicState, type MusicTrack,
 } from "./music";
@@ -13,21 +14,23 @@ import {
 import { dayStr } from "./life";
 import { IconTrash } from "./icons";
 
-/** A dedicated song, shaped like any other track in the daily pool. */
+/** A dedicated song, shaped like any other track in the daily pool. The
+ *  dedications resolve to Deezer tracks; older Apple links still work too. */
 function dedicationTrack(d: Dedication): MusicTrack {
+  const isDeezer = Boolean(deezerTrackId(d.url));
   return {
-    id: appleTrackId(d.url),
+    id: isDeezer ? `deezer:${deezerTrackId(d.url)}` : appleTrackId(d.url),
     name: d.title,
     artists: d.artist,
     cover: "",
     playlistName: "una dedica per te",
-    source: "apple",
+    source: isDeezer ? "deezer" : "apple",
     url: d.url,
   };
 }
 
 const DED_TRACKS = LOVE_DEDICATIONS.map(dedicationTrack);
-const DED_TEXT = new Map(LOVE_DEDICATIONS.map((d) => [appleTrackId(d.url), d.text]));
+const DED_TEXT = new Map(DED_TRACKS.map((t, i) => [t.id, LOVE_DEDICATIONS[i].text]));
 
 /**
  * "La canzone del giorno" — a small music note pinned to the decks landing,
@@ -62,8 +65,12 @@ export function SongWidget() {
   const libraryTracks = useMemo(() => allTracks(music), [music]);
   const hasSources = Boolean(music.apple?.playlists.length || music.spotify);
 
-  /* Sundays belong to the dedications; so does every day with no playlists. */
-  const pool = libraryTracks.length === 0 || isDedicationDay(today) ? DED_TRACKS : libraryTracks;
+  /* Every day is a dedication day: the song of the day always comes from the
+     300 love notes, so there's a song AND a message every single day, no gaps
+     (isDedicationDay is always true — kept for the API). Linked playlists stay
+     available for Spotify's "Salva", they just don't drive the daily pick. */
+  void isDedicationDay; void libraryTracks;
+  const pool = DED_TRACKS;
 
   const daily = useMemo<MusicTrack | null>(() => {
     if (pool.length === 0) return null;
@@ -71,7 +78,9 @@ export function SongWidget() {
       const found = pool.find((t) => t.id === music.daily!.trackId);
       if (found) return found;
     }
-    return pool[dailyIndex(today, pool.length)] ?? null;
+    // Sequential walk: a different dedication every day, no repeats for a full
+    // pool cycle (~300 days), no day ever skipped.
+    return pool[daySequential(today, pool.length)] ?? null;
   }, [music.daily, pool, today]);
 
   useEffect(() => {
@@ -169,10 +178,14 @@ export function SongWidget() {
   const embedSrc = shown
     ? shown.source === "apple"
       ? (shown.url ? appleEmbedUrl(shown.url) : null)
-      : spotifyTrackEmbed(shown.id)
+      : shown.source === "deezer"
+        ? (shown.url ? deezerEmbedUrl(shown.url) : null)
+        : spotifyTrackEmbed(shown.id)
     : null;
   const openHref = shown
-    ? shown.source === "apple" ? shown.url : `https://open.spotify.com/track/${shown.id}`
+    ? shown.source === "apple" || shown.source === "deezer"
+      ? shown.url
+      : `https://open.spotify.com/track/${shown.id}`
     : undefined;
 
   const sourcesPanel = (
@@ -312,8 +325,9 @@ export function SongWidget() {
 
       {!hasSources && !panel && (
         <p className="song-pin-hint">
-          Collega le tue playlist e nei giorni feriali la canzone arriva da lì —{" "}
-          <button className="link small" onClick={() => setPanel(true)}>aggiungile qui</button>.
+          Ogni giorno una canzone e una dedica pensata per te.{" "}
+          <button className="link small" onClick={() => setPanel(true)}>Collega Spotify</button>{" "}
+          se vuoi salvarle nella tua playlist.
         </p>
       )}
       {panel && sourcesPanel}

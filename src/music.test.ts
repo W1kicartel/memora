@@ -4,7 +4,7 @@
  */
 import {
   fnv1a, dailyIndex, spotifyTrackEmbed,
-  appleEmbedUrl, appleTrackId, parseApplePlaylist,
+  appleEmbedUrl, appleTrackId, deezerEmbedUrl, deezerTrackId, parseApplePlaylist,
 } from "./music";
 import { LOVE_DEDICATIONS, SUPPORT_DEDICATIONS, isDedicationDay } from "./dedications";
 
@@ -86,15 +86,19 @@ function assert(cond: boolean, msg: string): void {
 // --- dedications ------------------------------------------------------------
 {
   const all = [...LOVE_DEDICATIONS, ...SUPPORT_DEDICATIONS];
-  assert(LOVE_DEDICATIONS.length === 5 && SUPPORT_DEDICATIONS.length === 3, "all 8 original dedications survive");
-  assert(all.every((d) => d.text.length > 40), "every dedication keeps its message");
-  assert(all.every((d) => appleEmbedUrl(d.url) !== null), "every dedication is playable via embed");
-  const ids = new Set(all.map((d) => appleTrackId(d.url)));
-  assert(ids.size === all.length, "dedication track ids are unique");
+  // 300 love notes = a song and a message for every day, ~10 months before any repeat.
+  assert(LOVE_DEDICATIONS.length === 300, "300 love dedications — one per day");
+  assert(SUPPORT_DEDICATIONS.length === 3, "the comfort set is intact");
+  assert(all.every((d) => d.text.length > 30), "every dedication keeps its message");
+  // All resolve to a Deezer track the embed player can load.
+  assert(all.every((d) => deezerEmbedUrl(d.url) !== null), "every dedication is playable via the Deezer embed");
+  const ids = new Set(all.map((d) => deezerTrackId(d.url)));
+  assert(ids.size === all.length, "dedication track ids are unique (no daily-pick collisions)");
   assert(all.every((d) => !/Ã|â€/.test(d.text)), "no mojibake survives in the texts");
 
-  assert(isDedicationDay("2026-08-09") === true, "a Sunday is a dedication day");
-  assert(isDedicationDay("2026-08-10") === false, "a Monday is not");
+  // Every day is a dedication day now: a song and a note, never a gap.
+  assert(isDedicationDay("2026-08-09") === true, "a day is a dedication day");
+  assert(isDedicationDay("2026-08-10") === true, "so is the next — no day skipped");
 }
 
 console.log(`\nMusic tests: ${passed} passed, ${failed} failed`);

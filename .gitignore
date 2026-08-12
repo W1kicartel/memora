@@ -25,3 +25,7 @@ frames-pitch/
 promo-filter.txt
 .playwright-mcp
 pink-*.png
+
+# Dedications resolver work files
+dedications-cache.json
+dedications-progress.log

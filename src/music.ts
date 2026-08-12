@@ -41,8 +41,8 @@ export interface MusicTrack {
   /** name of the playlist it was found in. */
   playlistName: string;
   /** which service the track lives on. */
-  source: "spotify" | "apple";
-  /** canonical page url (Apple tracks; Spotify derives it from the id). */
+  source: "spotify" | "apple" | "deezer";
+  /** canonical page url (Apple/Deezer tracks; Spotify derives it from the id). */
   url?: string;
 }
 
@@ -132,6 +132,19 @@ export function dailyIndex(dateStr: string, poolSize: number, salt = 0): number 
   return fnv1a(`${dateStr}#${salt}`) % poolSize;
 }
 
+/**
+ * Sequential daily index: days-since-epoch modulo the pool size. Unlike the
+ * hashed pick, this walks the pool one step per calendar day — so a pool of
+ * 300 dedications gives a *different* song every day for 300 days before it
+ * ever repeats, and never skips a day.
+ */
+export function daySequential(dateStr: string, poolSize: number): number {
+  if (poolSize <= 0) return -1;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const days = Math.floor(Date.UTC(y, (m || 1) - 1, d || 1) / 86_400_000);
+  return ((days % poolSize) + poolSize) % poolSize;
+}
+
 /** open.spotify.com embed for one track. */
 export function spotifyTrackEmbed(trackId: string): string {
   return `https://open.spotify.com/embed/track/${trackId}`;
@@ -145,6 +158,18 @@ export function appleEmbedUrl(url: string): string | null {
   if (u.hostname !== "music.apple.com") return null;
   if (u.pathname.length < 2) return null;
   return `https://embed.music.apple.com${u.pathname}${u.search}`;
+}
+
+/** Deezer track id from a deezer.com/track/<id> url (or "" if not one). */
+export function deezerTrackId(url: string): string {
+  const m = /deezer\.com\/(?:[a-z]{2}\/)?track\/(\d+)/i.exec(url.trim());
+  return m ? m[1] : "";
+}
+
+/** Official Deezer embed player for one track (no login needed for the preview). */
+export function deezerEmbedUrl(url: string): string | null {
+  const id = deezerTrackId(url);
+  return id ? `https://widget.deezer.com/widget/dark/track/${id}` : null;
 }
 
 /** Stable id for an Apple track url: the ?i= param, else the last path id. */

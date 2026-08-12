@@ -133,8 +133,25 @@ async function installOllamaMac() {
 function startServer(exe) {
   // The installer may already have launched the tray app; a second `serve`
   // just exits on the busy port, which is harmless.
-  const child = spawn(exe, ['serve'], { detached: true, stdio: 'ignore', windowsHide: true });
+  // Speed tuning via env: Flash Attention (~10-20% faster + less VRAM on GPU,
+  // harmless on CPU) and a long keep-alive so the model stays warm between
+  // generations instead of reloading from disk each time.
+  const child = spawn(exe, ['serve'], {
+    detached: true, stdio: 'ignore', windowsHide: true,
+    env: { ...process.env, OLLAMA_FLASH_ATTENTION: '1', OLLAMA_KEEP_ALIVE: '30m' },
+  });
   child.unref();
+}
+
+/** Warm the model into memory so the first real generation doesn't wait for a load. */
+async function warmModel() {
+  try {
+    await fetch(`${OLLAMA}/api/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, prompt: 'ok', stream: false, keep_alive: '30m', options: { num_predict: 1 } }),
+    });
+  } catch { /* best-effort: a cold first request just pays the load once */ }
 }
 
 async function waitForServer(tries = 90) {
@@ -261,6 +278,8 @@ async function bootstrapOllama() {
     // the renderer falls back to it automatically.
     const created = await createModel();
     setStatus({ phase: 'ready', progress: 100, detail: created ? '' : 'modello base attivo' });
+    warmModel(); // load the model into VRAM now, so the first generation is instant
+
   } catch (e) {
     setStatus({ phase: 'error', detail: String((e && e.message) || e) });
   } finally {

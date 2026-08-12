@@ -96,6 +96,9 @@ export async function ollamaChat(
     model,
     messages,
     stream: false,
+    // Keep the model resident for 30 min so back-to-back generations skip the
+    // reload-from-disk latency entirely.
+    keep_alive: "30m",
     options: {
       temperature: opts.temperature ?? 0.4,
       num_predict: opts.maxTokens ?? 1024,

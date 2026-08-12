@@ -103,8 +103,11 @@ function toOllamaMessages(messages: Turn[], system?: string): OllamaMsg[] {
       if (b.type === "text") text += (text ? "\n\n" : "") + (b.text ?? "");
       else if (b.type === "image" && b.source?.data) images.push(b.source.data);
       else if (b.type === "document") {
+        // With the local model active, files.ts already turns PDFs into text —
+        // a raw document only reaches here if it was uploaded while Claude was
+        // selected and the provider was switched afterwards.
         throw new ClaudeError(
-          "I PDF non sono supportati dall'IA locale. Incolla il testo, oppure usa file Word/PowerPoint/Excel/testo (vengono letti sul tuo computer). In alternativa collega una chiave Claude nel Profilo.",
+          "Questo PDF era stato caricato per Claude. Rimuovilo e ricaricalo ora che l'IA locale è attiva: lo leggo sul tuo computer (con OCR se è scansionato).",
         );
       }
     }

@@ -20,7 +20,12 @@
  */
 
 import JSZip from "jszip";
+import * as pdfjs from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { Attachment } from "./claude";
+
+// PDF.js needs a worker; Vite bundles it as an asset and we point the lib at it.
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 /** A file we accepted but cannot send to Claude, with a human explanation. */
 export interface UnsupportedAttachment {
@@ -30,6 +35,19 @@ export interface UnsupportedAttachment {
 }
 
 export type ReadResult = Attachment | UnsupportedAttachment;
+
+/** Progress callback for slow PDF/OCR reads, surfaced in the upload UI. */
+export type ReadProgress = (message: string) => void;
+
+export interface ReadOptions {
+  /** true when the local model is active: PDFs are turned into text (it can't
+   *  ingest PDF binaries), with OCR fallback for scanned pages. */
+  forLocalAI?: boolean;
+  onProgress?: ReadProgress;
+}
+
+/** Characters of extracted PDF text kept for the local model (small context). */
+const LOCAL_PDF_CHAR_CAP = 12000;
 
 const API_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
@@ -177,10 +195,83 @@ async function imageToPng(file: File): Promise<Attachment | null> {
   }
 }
 
+/* ─── PDF: text extraction + OCR fallback (for the local model) ───────────── */
+
+/**
+ * Extract a PDF's text with PDF.js. If the pages carry almost no text (a
+ * scanned/photographed PDF), fall back to OCR: render each page to a canvas
+ * and read it with Tesseract (Italian + English). Everything runs on-device.
+ */
+async function pdfToText(
+  buf: ArrayBuffer,
+  onProgress?: ReadProgress,
+): Promise<{ text: string; ocr: boolean; pages: number }> {
+  const pdf = await pdfjs.getDocument({ data: buf }).promise;
+  const pages = pdf.numPages;
+  const parts: string[] = [];
+  for (let p = 1; p <= pages; p++) {
+    onProgress?.(`Leggo il PDF… pagina ${p}/${pages}`);
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const line = content.items
+      .map((it) => (typeof (it as { str?: string }).str === "string" ? (it as { str: string }).str : ""))
+      .join(" ")
+      .replace(/\s+\n/g, "\n")
+      .trim();
+    if (line) parts.push(line);
+  }
+  const text = parts.join("\n\n").trim();
+
+  // Enough text? Use it. Otherwise the PDF is (mostly) scanned → OCR.
+  if (text.length >= pages * 40) {
+    return { text, ocr: false, pages };
+  }
+
+  const ocrText = await ocrPdf(pdf, pages, onProgress);
+  return { text: ocrText, ocr: true, pages };
+}
+
+/** OCR every page by rendering it to a canvas and reading it with Tesseract. */
+async function ocrPdf(
+  pdf: Awaited<ReturnType<typeof pdfjs.getDocument>["promise"]>,
+  pages: number,
+  onProgress?: ReadProgress,
+): Promise<string> {
+  onProgress?.("PDF scansionato: avvio il riconoscimento testo (OCR)…");
+  // Lazy-load Tesseract so it never weighs on users who don't OCR. Language
+  // data downloads once (needs a connection the first time), then it's cached.
+  const { createWorker } = await import("tesseract.js");
+  let worker;
+  try {
+    worker = await createWorker("ita+eng");
+  } catch {
+    throw new Error("OCR non disponibile offline: la prima volta serve una connessione per scaricare il modello di lingua. Connettiti e riprova, oppure usa Claude.");
+  }
+  try {
+    const out: string[] = [];
+    for (let p = 1; p <= pages; p++) {
+      onProgress?.(`OCR pagina ${p}/${pages}…`);
+      const page = await pdf.getPage(p);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      const { data } = await worker.recognize(canvas);
+      if (data.text.trim()) out.push(data.text.trim());
+    }
+    return out.join("\n\n").trim();
+  } finally {
+    await worker.terminate();
+  }
+}
+
 /* ─── Public entry point ──────────────────────────────────────────────────── */
 
 /** Normalise one uploaded file into a Claude-ready Attachment (or explain why not). */
-export async function readAttachment(file: File): Promise<ReadResult> {
+export async function readAttachment(file: File, opts: ReadOptions = {}): Promise<ReadResult> {
   const e = ext(file.name);
   const type = file.type;
   const un = (reason: string): UnsupportedAttachment => ({ kind: "unsupported", name: file.name, reason });
@@ -193,9 +284,29 @@ export async function readAttachment(file: File): Promise<ReadResult> {
     return un("Claude non può analizzare audio. Trascrivi l'audio e carica il testo.");
   }
 
-  // PDF → document block.
+  // PDF. Claude reads the binary natively (a document block). The local model
+  // can't, so for it we extract the text on-device (with OCR for scans) and
+  // send that instead.
   if (type === "application/pdf" || e === "pdf") {
-    return { kind: "pdf", name: file.name, data: toBase64(await file.arrayBuffer()) };
+    const buf = await file.arrayBuffer();
+    if (!opts.forLocalAI) {
+      return { kind: "pdf", name: file.name, data: toBase64(buf) };
+    }
+    try {
+      const { text, ocr, pages } = await pdfToText(buf, opts.onProgress);
+      if (!text.trim()) {
+        return un("Non sono riuscito a leggere testo da questo PDF (né diretto né via OCR). Prova con Claude o incolla il testo.");
+      }
+      let out = text;
+      let note = ocr ? " (letto via OCR)" : "";
+      if (out.length > LOCAL_PDF_CHAR_CAP) {
+        out = out.slice(0, LOCAL_PDF_CHAR_CAP);
+        note += ` — PDF lungo (${pages} pagine): l'IA locale usa le prime pagine. Per l'intero documento usa Claude o dividilo.`;
+      }
+      return { kind: "text", name: file.name + note, text: out };
+    } catch (err) {
+      return un(err instanceof Error ? err.message : "Impossibile leggere il PDF.");
+    }
   }
 
   // Images → image block (native types pass through; others get canvas-converted).

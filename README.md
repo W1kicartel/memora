@@ -164,8 +164,15 @@ study-engine system prompt and tuned parameters baked in. Free, private, no
 account, no key.
 
 Prefer more horsepower? Open **Profile → AI engine**, switch to **Claude API**
-and paste your [Anthropic API key](https://console.anthropic.com/settings/keys)
-(also unlocks PDF ingestion).
+and paste your [Anthropic API key](https://console.anthropic.com/settings/keys).
+
+**File reading**: Claude ingests PDFs and images natively. The local model
+can't read PDF binaries, so Memora extracts the text on-device with PDF.js
+first, and for scanned/photographed PDFs falls back to OCR (Tesseract.js,
+Italian + English — its language model downloads once on first use). Office
+files (docx/pptx/xlsx) are always text-extracted locally. Long PDFs are
+truncated for the local model's small context window (a note says so); Claude
+has no such limit.
 
 > **Note:** browser-stored keys are appropriate for a personal desktop tool. If
 > you deploy Memora for multiple users, put a small server-side proxy in front

@@ -174,19 +174,23 @@ const KIND_BADGE: Record<Attachment["kind"], string> = {
 
 /**
  * Upload any number of files of ANY type. Each is normalised by readAttachment:
- * PDFs/images go straight to Claude, Office docs are text-extracted, and files
- * Claude can't read (video/audio/unknown) surface an inline explanation.
+ * with Claude, PDFs/images go straight through; with the local model, PDFs are
+ * turned into text on-device (OCR for scans). Office docs are text-extracted,
+ * and files that can't be read surface an inline explanation.
  */
 function Attachments({
   items,
   onChange,
+  forLocalAI,
 }: {
   items: Attachment[];
   onChange: (next: Attachment[]) => void;
+  forLocalAI: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
 
   const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -196,10 +200,11 @@ function Attachments({
     const accepted: Attachment[] = [];
     const warns: string[] = [];
     for (const f of files) {
-      const r = await readAttachment(f);
+      const r = await readAttachment(f, { forLocalAI, onProgress: setProgress });
       if (r.kind === "unsupported") warns.push(`${r.name} — ${r.reason}`);
       else accepted.push(r);
     }
+    setProgress(null);
     setBusy(false);
     setWarnings(warns);
     if (accepted.length) onChange([...items, ...accepted]);
@@ -216,7 +221,7 @@ function Attachments({
         disabled={busy}
         style={{ display: "flex", alignItems: "center", gap: ".35rem" }}
       >
-        <IconUpload size={13} /> {busy ? "Lettura…" : "Carica file (qualsiasi tipo)"}
+        <IconUpload size={13} /> {busy ? (progress ?? "Lettura…") : "Carica file (qualsiasi tipo)"}
       </button>
       <input ref={ref} type="file" multiple onChange={onPick} hidden />
 
@@ -278,7 +283,7 @@ function CardGenerator({
         alla fonte. Ogni card è atomica, in active recall, con tag Bloom e tag gerarchico.
       </p>
 
-      <Attachments items={atts} onChange={setAtts} />
+      <Attachments items={atts} onChange={setAtts} forLocalAI={(settings.provider ?? "ollama") !== "claude"} />
 
       <textarea
         rows={atts.length ? 3 : 7}
@@ -361,7 +366,7 @@ function Summarizer({ settings, level, subject }: { settings: Settings; level: S
         "🔬 Esperimento/Concetto chiave" e "⚠️ Trappola d'esame", palazzo della memoria e glossario.
       </p>
 
-      <Attachments items={atts} onChange={setAtts} />
+      <Attachments items={atts} onChange={setAtts} forLocalAI={(settings.provider ?? "ollama") !== "claude"} />
 
       <textarea
         rows={atts.length ? 3 : 6}
@@ -469,7 +474,7 @@ function ExamMaker({ settings, decks, level, subject }: { settings: Settings; de
 
       {source === "__text" && (
         <>
-          <Attachments items={atts} onChange={setAtts} />
+          <Attachments items={atts} onChange={setAtts} forLocalAI={(settings.provider ?? "ollama") !== "claude"} />
           <textarea
             rows={atts.length ? 3 : 5}
             value={text}
@@ -595,7 +600,7 @@ function ExtraPanel({ settings, level, subject }: { settings: Settings; level: S
 
       <p className="hint">{EXTRA_META[cmd].hint}</p>
 
-      <Attachments items={atts} onChange={setAtts} />
+      <Attachments items={atts} onChange={setAtts} forLocalAI={(settings.provider ?? "ollama") !== "claude"} />
 
       <textarea
         rows={atts.length ? 2 : 3}

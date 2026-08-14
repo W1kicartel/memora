@@ -23,14 +23,14 @@ import { Memo } from "./tour";
 import { startUsageHeartbeat } from "./usage";
 import {
   IconDecks, IconProgress, IconLife, IconUsers, IconAI, IconSettings,
-  IconArrowLeft, IconTrash, IconUpload, IconDownload, IconCheck, IconKey,
+  IconArrowLeft, IconTrash, IconEdit, IconUpload, IconDownload, IconCheck, IconKey,
   IconLogo, IconMenu, IconClose,
 } from "./icons";
 import { SongWidget } from "./songwidget";
 import { completeSpotifyBrowserAuth } from "./music";
 import { initCardTilt, initRipple, initMagnetic } from "./cinematic";
 import { aiConfigured, statusLabel, useOllamaStatus, retryOllama, DEFAULT_OLLAMA_MODEL } from "./ollama";
-import { IS_SOCIAL, APP_NAME } from "./edition";
+import { HAS_GIFT, APP_NAME } from "./edition";
 import { fetchUnseenNotices, markNoticeSeen, type Notice } from "./notices";
 import { SUPPORT_CATEGORIES, sendSupport, fetchSupportThread, type SupportCategory, type ThreadMessage } from "./support";
 import { GuidedTour, tourPending, resetTour } from "./tour";
@@ -266,6 +266,14 @@ export function App() {
                   ? { ...d, cards: d.cards.filter((c) => c.id !== cardId) } : d)
               )
             }
+            /* Fixing a typo shouldn't cost you the card's history: only the
+               text changes, the SM-2 schedule and due date carry over. */
+            onEditCard={(cardId, front, back) =>
+              setDecks((ds) =>
+                ds.map((d) => d.id !== activeDeck.id ? d
+                  : { ...d, cards: d.cards.map((c) => c.id === cardId ? { ...c, front, back } : c) })
+              )
+            }
           />
         )}
 
@@ -307,9 +315,9 @@ export function App() {
         )}
 
         <footer className="footer">
-          {IS_SOCIAL
-            ? <>Memora · studiare insieme è meglio · MIT License</>
-            : <>Memora · fatto con <span className="footer-heart" aria-hidden="true">♥</span> per te · MIT License</>}
+          {HAS_GIFT
+            ? <>Memora · fatto con <span className="footer-heart" aria-hidden="true">♥</span> per te · MIT License</>
+            : <>Memora · studiare insieme è meglio · MIT License</>}
         </footer>
 
         <UpdateToast />
@@ -361,7 +369,7 @@ function UpdateToast() {
         </>
       ) : (
         <>
-          <p>Aggiornamento{status.version ? ` ${status.version}` : ""} pronto{!IS_SOCIAL && <span aria-hidden="true"> ♥</span>}</p>
+          <p>Aggiornamento{status.version ? ` ${status.version}` : ""} pronto{HAS_GIFT && <span aria-hidden="true"> ♥</span>}</p>
           <button className="primary small" onClick={() => window.memoraAI?.installUpdate?.()}>
             Riavvia e aggiorna
           </button>
@@ -589,8 +597,8 @@ function HeroStrip({ decks, events, faculty }: { decks: Deck[]; events: ReviewEv
         Ready when<br /><em>you are.</em>
       </h1>
       {/* A note left between the pages: taped-on scrap, sealed with wax.
-          Private edition only — the social build keeps the hero clean. */}
-      {!IS_SOCIAL && (
+          Part of the gift layer — every build now keeps the hero clean. */}
+      {HAS_GIFT && (
         <div className="hero-note" aria-label="You are allowed to want more btw.">
           <p>You are allowed to want more btw.</p>
           <div className="wax-seal" aria-hidden="true"><span>♥</span></div>
@@ -646,9 +654,9 @@ function DeckList(props: {
         <button type="submit" className="primary">Add deck</button>
       </form>
 
-      {/* The bacheca: today's song pinned among the decks. The dedications are
-          hers alone — the social edition ships without the song of the day. */}
-      {!IS_SOCIAL && <SongWidget />}
+      {/* The bacheca: today's song pinned among the decks. Part of the gift
+          layer — every build now ships without the song of the day. */}
+      {HAS_GIFT && <SongWidget />}
 
       {props.decks.length === 0 && (
         <div className="empty-state">
@@ -697,10 +705,25 @@ function DeckDetail(props: {
   onAddCard: (front: string, back: string) => void;
   onImportCards: (cards: ParsedCard[]) => void;
   onDeleteCard: (id: string) => void;
+  onEditCard: (id: string, front: string, back: string) => void;
 }) {
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
   const [showImport, setShowImport] = useState(false);
+  /* Which card is open for editing, and its working copy. One row at a time:
+     opening another closes the first, discarding it. */
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editFront, setEditFront] = useState("");
+  const [editBack, setEditBack] = useState("");
+
+  const startEdit = (c: Card) => { setEditId(c.id); setEditFront(c.front); setEditBack(c.back); };
+  const cancelEdit = () => setEditId(null);
+  const commitEdit = () => {
+    const f = editFront.trim(), b = editBack.trim();
+    if (!editId || !f || !b) return;
+    props.onEditCard(editId, f, b);
+    setEditId(null);
+  };
   const due = useMemo(() => dueCards(props.deck, Date.now()).length, [props.deck]);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -747,18 +770,49 @@ function DeckDetail(props: {
       )}
       <ul className="card-list">
         {props.deck.cards.map((c) => (
-          <li key={c.id} className="reveal">
-            <div className="card-text">
-              <span className="front">{c.front}</span>
-              <span className="back">{c.back}</span>
-            </div>
-            <div className="card-stats">
-              <span title="ease factor">EF {c.schedule.easeFactor.toFixed(2)}</span>
-              <span title="interval">{c.schedule.interval}d</span>
-              <button className="icon danger" onClick={() => props.onDeleteCard(c.id)} title="Delete card">
-                <IconTrash size={13} />
-              </button>
-            </div>
+          <li key={c.id} className={editId === c.id ? "editing" : "reveal"}>
+            {editId === c.id ? (
+              <form
+                className="card-edit"
+                onSubmit={(e) => { e.preventDefault(); commitEdit(); }}
+                onKeyDown={(e) => { if (e.key === "Escape") cancelEdit(); }}
+              >
+                <input
+                  autoFocus
+                  value={editFront}
+                  onChange={(e) => setEditFront(e.target.value)}
+                  placeholder="Front (question)"
+                  aria-label="Front"
+                />
+                <input
+                  value={editBack}
+                  onChange={(e) => setEditBack(e.target.value)}
+                  placeholder="Back (answer)"
+                  aria-label="Back"
+                />
+                <button type="submit" className="primary small" disabled={!editFront.trim() || !editBack.trim()}>
+                  Save
+                </button>
+                <button type="button" className="ghost small" onClick={cancelEdit}>Cancel</button>
+              </form>
+            ) : (
+              <>
+                <div className="card-text">
+                  <span className="front">{c.front}</span>
+                  <span className="back">{c.back}</span>
+                </div>
+                <div className="card-stats">
+                  <span title="ease factor">EF {c.schedule.easeFactor.toFixed(2)}</span>
+                  <span title="interval">{c.schedule.interval}d</span>
+                  <button className="icon" onClick={() => startEdit(c)} title="Edit card">
+                    <IconEdit size={13} />
+                  </button>
+                  <button className="icon danger" onClick={() => props.onDeleteCard(c.id)} title="Delete card">
+                    <IconTrash size={13} />
+                  </button>
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ul>

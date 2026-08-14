@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { IS_SOCIAL, APP_NAME } from "./edition";
+import { HAS_GIFT, APP_NAME } from "./edition";
 
 const TOUR_KEY = "memora:tour:v1:done";
 
@@ -132,9 +132,9 @@ const STEPS: TourStep[] = [
   {
     target: "life", tab: "life",
     title: "La vita da studente",
-    text: IS_SOCIAL
-      ? "Timer Pomodoro per il focus, abitudini, umore e budget: la parte di studio che non è studio."
-      : "Timer Pomodoro, abitudini, umore, budget… e i premi: ogni punto guadagnato è tempo passato insieme. ♥",
+    text: HAS_GIFT
+      ? "Timer Pomodoro, abitudini, umore, budget… e i premi: ogni punto guadagnato è tempo passato insieme. ♥"
+      : "Timer Pomodoro per il focus, abitudini, umore e budget: la parte di studio che non è studio.",
   },
   {
     target: "groups", tab: "groups",

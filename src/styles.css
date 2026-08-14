@@ -796,6 +796,19 @@ button.icon.danger:hover {
 .card-text .back  { color: var(--fg-subtle); font-size: .81rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-stats { display: flex; align-items: center; gap: .7rem; color: var(--fg-subtle); font-size: .75rem; white-space: nowrap; }
 
+/* A row opened for editing: same box, the text swapped for two fields.
+   Kept out of `.reveal` so re-rendering the row doesn't replay the entrance
+   animation while you're typing in it. */
+.card-list li.editing { border-color: var(--border-1); background: var(--glass-bg-hover); }
+.card-edit {
+  display: grid; grid-template-columns: 1fr 1fr auto auto;
+  gap: .5rem; align-items: center; width: 100%;
+}
+.card-edit input { font-size: .85rem; }
+@media (max-width: 640px) {
+  .card-edit { grid-template-columns: 1fr 1fr; }
+}
+
 .import-panel {
   background: var(--glass-bg);
   backdrop-filter: blur(28px) brightness(0.65);

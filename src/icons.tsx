@@ -164,6 +164,15 @@ export function IconTrash({ size = 16, className }: P) {
   );
 }
 
+export function IconEdit({ size = 16, className }: P) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" className={className} {...defaults}>
+      <path d="M2.5 13.5l.5-2.7 7.4-7.4 2.2 2.2-7.4 7.4z" />
+      <line x1="9.2" y1="4.6" x2="11.4" y2="6.8" opacity="0.5" />
+    </svg>
+  );
+}
+
 export function IconUpload({ size = 16, className }: P) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" className={className} {...defaults}>

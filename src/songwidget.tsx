@@ -29,8 +29,21 @@ function dedicationTrack(d: Dedication): MusicTrack {
   };
 }
 
-const DED_TRACKS = LOVE_DEDICATIONS.map(dedicationTrack);
-const DED_TEXT = new Map(DED_TRACKS.map((t, i) => [t.id, LOVE_DEDICATIONS[i].text]));
+/* Built on first use, not at module load. A top-level `.map()` counts as a
+   side effect for the bundler, which kept the 300 dedications in every bundle
+   even when the gift layer is off and this widget is never rendered. Behind a
+   function they travel with the widget: no widget, no dedications shipped. */
+let dedCache: { tracks: MusicTrack[]; text: Map<string, string> } | null = null;
+function dedications() {
+  if (!dedCache) {
+    const tracks = LOVE_DEDICATIONS.map(dedicationTrack);
+    dedCache = {
+      tracks,
+      text: new Map(tracks.map((t, i) => [t.id, LOVE_DEDICATIONS[i].text])),
+    };
+  }
+  return dedCache;
+}
 
 /**
  * "La canzone del giorno" — a small music note pinned to the decks landing,
@@ -70,7 +83,7 @@ export function SongWidget() {
      (isDedicationDay is always true — kept for the API). Linked playlists stay
      available for Spotify's "Salva", they just don't drive the daily pick. */
   void isDedicationDay; void libraryTracks;
-  const pool = DED_TRACKS;
+  const pool = dedications().tracks;
 
   const daily = useMemo<MusicTrack | null>(() => {
     if (pool.length === 0) return null;
@@ -174,7 +187,7 @@ export function SongWidget() {
 
   /* What's on the turntable: a comfort song overrides the daily one. */
   const shown = support ? dedicationTrack(support) : daily;
-  const shownText = support ? support.text : (shown && DED_TEXT.get(shown.id)) || null;
+  const shownText = support ? support.text : (shown && dedications().text.get(shown.id)) || null;
   const embedSrc = shown
     ? shown.source === "apple"
       ? (shown.url ? appleEmbedUrl(shown.url) : null)

@@ -17,6 +17,11 @@ try {
   EDITION = require(path.join(__dirname, '..', 'package.json')).memoraEdition || 'private';
 } catch { /* dev tree without package.json is impossible, but stay safe */ }
 const IS_SOCIAL = EDITION === 'social';
+
+/* The gift layer, main-process side (see src/edition.ts for the renderer's
+   copy). Off: the private edition now speaks exactly like the social one.
+   Set back to `!IS_SOCIAL` to restore the hearts. */
+const HAS_GIFT = false;
 // One brand: both editions present themselves as "Memora".
 const APP_NAME = 'Memora';
 const APP_ID = IS_SOCIAL ? 'app.memora.social' : 'app.memora.desktop';
@@ -350,9 +355,9 @@ function setupAutoUpdate() {
   });
   autoUpdater.on('update-downloaded', (info) => {
     sendUpdate({ phase: 'ready', version: info.version });
-    notify(IS_SOCIAL
-      ? `Aggiornamento ${info.version} pronto — riavvia ${APP_NAME} per installarlo.`
-      : `Aggiornamento ${info.version} pronto — riavvia Memora per installarlo. ♥`);
+    notify(HAS_GIFT
+      ? `Aggiornamento ${info.version} pronto — riavvia Memora per installarlo. ♥`
+      : `Aggiornamento ${info.version} pronto — riavvia ${APP_NAME} per installarlo.`);
   });
   // Offline, rate-limited or no release yet: stay silent, retry later.
   autoUpdater.on('error', () => {});

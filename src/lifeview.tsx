@@ -11,7 +11,7 @@ import { IconTimer, IconNotes, IconHabits, IconBudget, IconTrash, IconTrophy, Ic
 import { financialAdvice, ClaudeError } from "./claude";
 import { aiConfigured } from "./ollama";
 import { Markdown } from "./markdown";
-import { IS_SOCIAL } from "./edition";
+import { HAS_GIFT } from "./edition";
 
 type Sub = "pomodoro" | "notes" | "habits" | "budget" | "rewards" | "finanza";
 type SetLife = (updater: (l: LifeState) => LifeState) => void;
@@ -25,9 +25,9 @@ const ALL_SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
   { id: "finanza",  label: "Finanza",   icon: <IconChart  size={14} /> },
 ];
 
-// The rewards are romantic promises between the two of us; the social
-// edition drops the whole tab (and with it the points economy).
-const SUBS = ALL_SUBS.filter((s) => !IS_SOCIAL || s.id !== "rewards");
+// The rewards are romantic promises between the two of us; without the gift
+// layer every build drops the whole tab (and with it the points economy).
+const SUBS = ALL_SUBS.filter((s) => HAS_GIFT || s.id !== "rewards");
 
 /** Student-life hub: focus timer, notes, habits and budget in one view. */
 export function LifeView({
@@ -88,7 +88,7 @@ export function LifeView({
       {sub === "notes"    && <Notes    life={life} setLife={setLife} />}
       {sub === "habits"   && <Habits   life={life} setLife={setLife} />}
       {sub === "budget"   && <Budget   life={life} setLife={setLife} />}
-      {sub === "rewards"  && !IS_SOCIAL && <Rewards  life={life} setLife={setLife} points={points} earned={earned} />}
+      {sub === "rewards"  && HAS_GIFT && <Rewards life={life} setLife={setLife} points={points} earned={earned} />}
       {sub === "finanza"  && <Finance  life={life} settings={settings} />}
     </main>
   );
@@ -162,7 +162,7 @@ function Pomodoro({ life, setLife }: { life: LifeState; setLife: SetLife }) {
       </div>
       <p className="hint" style={{ textAlign: "center" }}>
         Today: <strong>{today.count}</strong> focus session{today.count === 1 ? "" : "s"} · {today.minutes} min
-        {!IS_SOCIAL && <span className="pts-note"> · +{today.minutes * POINTS_PER.pomodoroMin} pts</span>}
+        {HAS_GIFT && <span className="pts-note"> · +{today.minutes * POINTS_PER.pomodoroMin} pts</span>}
       </p>
     </section>
   );
@@ -278,7 +278,7 @@ function Habits({ life, setLife }: { life: LifeState; setLife: SetLife }) {
                 <span className="habit-streak" aria-label={streak > 0 ? `${streak} day streak` : undefined}>
                   {streak > 0 && <><span className="streak-dot" />{streak}</>}
                 </span>
-                {done && !isBad && !IS_SOCIAL && (
+                {done && !isBad && HAS_GIFT && (
                   <span className="habit-pts">+{POINTS_PER.buildHabit}</span>
                 )}
                 <span className="habit-check">{done ? (isBad ? "✗" : "✓") : ""}</span>

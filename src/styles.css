@@ -2745,6 +2745,22 @@ h2::after {
 .update-toast-orn { color: var(--accent); font-size: 1rem; }
 .update-toast .primary.small { white-space: nowrap; }
 .update-toast-close { flex-shrink: 0; }
+
+/* The private edition's update toast carries a sentence, not a status line.
+   Let it wrap onto its own row and drop the button underneath, instead of
+   squeezing a paragraph into the gap beside a nowrap button. */
+.update-toast:has(.update-toast-note) { flex-wrap: wrap; max-width: 360px; }
+.update-toast-note { flex: 1 1 240px; line-height: 1.5; }
+/* Signed like the dedications are, so it reads as a note and not as a
+   second sentence of the message. */
+.update-toast-sig {
+  display: block;
+  margin-top: .35rem;
+  text-align: right;
+  font-size: .84rem;
+  color: var(--accent);
+}
+.update-toast:has(.update-toast-note) .primary.small { margin-left: auto; }
 [data-theme="dark"] .update-toast {
   background:
     linear-gradient(135deg, rgba(255,247,230,.05) 0%, transparent 55%),

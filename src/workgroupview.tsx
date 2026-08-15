@@ -15,6 +15,7 @@ import { makeSyncId, pushSnapshot, joinSyncChannel, absorbRemote, type SyncState
 import {
   computeMonthly, monthKeyOf, prevMonthKey, rankByPoints, rankByConstancy, MEDALS,
 } from "./leaderboard";
+import { track } from "./track";
 
 /**
  * Work Groups — create a study group, invite people with a single link
@@ -87,6 +88,7 @@ export function WorkgroupView({
           onJoin={(snapshot) => {
             persist(joinGroup(groups, snapshot, profile));
             setOpenId(snapshot.id);
+            track("group_joined", `${snapshot.members?.length ?? 0} membri`);
           }}
         />
       )}
@@ -232,6 +234,7 @@ function GroupDetail({
   const [syncState, setSyncState] = useState<SyncState>("off");
   // One thing at a time: the group's areas live behind sub-tabs.
   const [tab, setTab] = useState<"chat" | "events" | "materials" | "board" | "members">("chat");
+  useEffect(() => track("nav_sub", `gruppi/${tab}`), [tab]);
 
   /* ── live sync ─────────────────────────────────────────────────────────
      Channel per syncId; refs keep the latest group/onChange visible to the
@@ -619,11 +622,14 @@ function ChatBox({
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
-  const push = (msg: Omit<ChatMessage, "id" | "author" | "at">) =>
+  const push = (msg: Omit<ChatMessage, "id" | "author" | "at">) => {
+    /* The kind of message, never its text. */
+    track("group_message", msg.kind);
     onChange({
       ...group,
       chat: [...(group.chat ?? []), { ...msg, id: uid(), author: profile.name, at: Date.now() }],
     });
+  };
 
   const sendText = () => {
     if (!text.trim()) return;

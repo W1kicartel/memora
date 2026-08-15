@@ -189,6 +189,7 @@
     <nav>
       <button data-view="overview" class="on" onclick="show('overview')"><span class="ic">◆</span> Panoramica</button>
       <button data-view="activity" onclick="show('activity')"><span class="ic">✦</span> Attività</button>
+      <button data-view="actions" onclick="show('actions')"><span class="ic">▤</span> Azioni</button>
       <button data-view="users" onclick="show('users')"><span class="ic">◷</span> Utenti &amp; tempo</button>
       <button data-view="groups" onclick="show('groups')"><span class="ic">❖</span> Gruppi</button>
       <button data-view="support" onclick="show('support')"><span class="ic">✉</span> Supporto</button>
@@ -237,6 +238,27 @@
       <h1 class="page-title">Attività</h1>
       <p class="page-sub">Ogni cosa che succede, dalla più recente.</p>
       <div class="card feed" id="feed"></div>
+    </section>
+
+    <!-- ACTIONS — the per-action log written by src/track.ts -->
+    <section id="v-actions" class="hidden">
+      <h1 class="page-title">Azioni</h1>
+      <p class="page-sub">Ogni azione fatta nell'app, dalla più recente. Viene registrato il <em>tipo</em> di azione, mai il contenuto: “card modificata”, non il testo della card.</p>
+      <div class="card">
+        <div class="row" style="justify-content:space-between; margin-bottom:.8rem; gap:.6rem; flex-wrap:wrap">
+          <select id="acKind" onchange="loadActions()" style="max-width:220px">
+            <option value="">Tutte le azioni</option>
+          </select>
+          <input id="acWho" placeholder="Filtra per nome utente…" style="flex:1; max-width:240px" oninput="renderActions()">
+          <button class="btn ghost" onclick="loadActions()">↻ Ricarica</button>
+          <button class="btn ghost" onclick="exportActions()">⭳ Esporta CSV</button>
+        </div>
+        <table id="actionsTable"><thead><tr><th>Quando</th><th>Utente</th><th>Azione</th><th>Dettaglio</th><th>Ed./Ver.</th></tr></thead><tbody></tbody></table>
+        <p class="muted hidden" id="actionsEmpty">Nessuna azione registrata. Arriveranno quando qualcuno userà una versione 1.9.0 o successiva.</p>
+        <div class="row" style="justify-content:center; margin-top:.8rem">
+          <button class="btn ghost hidden" id="acMore" onclick="moreActions()">Carica altre</button>
+        </div>
+      </div>
     </section>
 
     <!-- USERS -->
@@ -355,7 +377,7 @@ function show(v){ for(const b of document.querySelectorAll("nav button")) b.clas
 
 async function refreshAll(){
   $("refreshInfo").textContent = "aggiornato "+new Date().toLocaleTimeString();
-  loadOverview(); loadActivity(); loadUsers(); loadGroups(); loadSupport(); loadSent(); renderTargetPick();
+  loadOverview(); loadActivity(); loadActions(); loadUsers(); loadGroups(); loadSupport(); loadSent(); renderTargetPick();
 }
 
 /* count-up animation */
@@ -451,6 +473,69 @@ function exportUsers(){
   const lines = USERS.map(u=>[u.member_name,u.faculty,u.edition,u.app_version,u.days,u.minutes,new Date(u.last_seen).toISOString()].map(x=>`"${String(x??"").replace(/"/g,'""')}"`).join(","));
   const blob = new Blob([head+"\n"+lines.join("\n")],{type:"text/csv"}); const a=document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="memora-utenti.csv"; a.click(); toast("CSV esportato");
+}
+
+/* ── Azioni ─────────────────────────────────────────────────────────────
+   Reads app_events through admin_events. The server pages it; the name
+   filter is applied here on the page you already have, so typing a name
+   never costs a round trip. */
+const AC_PAGE = 200;
+let ACTIONS = [], acOffset = 0, acKindsLoaded = false;
+
+const AC_LABEL = {
+  app_open:"App aperta", nav:"Sezione aperta", nav_sub:"Sotto-sezione aperta",
+  deck_created:"Mazzo creato", deck_deleted:"Mazzo eliminato",
+  card_added:"Card aggiunta", card_edited:"Card modificata", card_deleted:"Card eliminata",
+  cards_imported:"Card importate", study_started:"Studio iniziato", study_finished:"Studio concluso",
+  ai_used:"IA usata", pomodoro_done:"Pomodoro completato", habit_done:"Abitudine spuntata",
+  group_joined:"Entrato in un gruppo", group_message:"Messaggio nel gruppo",
+  export_pdf:"PDF esportato", demo_loaded:"Demo caricata",
+};
+const acLabel = k => AC_LABEL[k] || k;
+
+async function loadActions(){
+  acOffset = 0;
+  ACTIONS = await rpc("admin_events",{p_key:key(), p_limit:AC_PAGE, p_offset:0, p_kind:$("acKind").value}) || [];
+  if(!acKindsLoaded){
+    const kinds = await rpc("admin_event_kinds",{p_key:key()}) || [];
+    $("acKind").innerHTML = '<option value="">Tutte le azioni</option>' +
+      kinds.map(k=>`<option value="${esc(k.kind)}">${esc(acLabel(k.kind))} (${k.n})</option>`).join("");
+    acKindsLoaded = true;
+  }
+  renderActions();
+}
+
+async function moreActions(){
+  acOffset += AC_PAGE;
+  const next = await rpc("admin_events",{p_key:key(), p_limit:AC_PAGE, p_offset:acOffset, p_kind:$("acKind").value}) || [];
+  ACTIONS = ACTIONS.concat(next);
+  renderActions();
+}
+
+function acVisible(){
+  const q = $("acWho").value.trim().toLowerCase();
+  return q ? ACTIONS.filter(e=>(e.member_name||"").toLowerCase().includes(q)) : ACTIONS;
+}
+
+function renderActions(){
+  const rows = acVisible();
+  $("actionsTable").querySelector("tbody").innerHTML = rows.map(e=>`<tr>
+    <td class="muted">${new Date(e.at).toLocaleString()}</td>
+    <td><strong>${esc(e.member_name||"anonimo")}</strong></td>
+    <td>${esc(acLabel(e.kind))}</td>
+    <td class="muted">${esc(e.detail||"")}</td>
+    <td class="muted">${esc(e.edition||"")} ${esc(e.app_version||"")}</td></tr>`).join("");
+  $("actionsEmpty").classList.toggle("hidden", rows.length>0);
+  // Only offer "load more" when the last page came back full.
+  $("acMore").classList.toggle("hidden", ACTIONS.length < acOffset + AC_PAGE);
+}
+
+function exportActions(){
+  const head = "quando,utente,azione,dettaglio,edizione,versione,install_id";
+  const lines = acVisible().map(e=>[new Date(e.at).toISOString(),e.member_name,acLabel(e.kind),e.detail,e.edition,e.app_version,e.install_id]
+    .map(x=>`"${String(x??"").replace(/"/g,'""')}"`).join(","));
+  const blob = new Blob([head+"\n"+lines.join("\n")],{type:"text/csv"}); const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="memora-azioni.csv"; a.click(); toast("CSV esportato");
 }
 
 async function loadGroups(){

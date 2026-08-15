@@ -12,6 +12,7 @@ import { financialAdvice, ClaudeError } from "./claude";
 import { aiConfigured } from "./ollama";
 import { Markdown } from "./markdown";
 import { HAS_GIFT } from "./edition";
+import { track } from "./track";
 
 type Sub = "pomodoro" | "notes" | "habits" | "budget" | "rewards" | "finanza";
 type SetLife = (updater: (l: LifeState) => LifeState) => void;
@@ -42,6 +43,7 @@ export function LifeView({
   settings: Settings;
 }) {
   const [sub, setSub] = useState<Sub>("pomodoro");
+  useEffect(() => track("nav_sub", `vita/${sub}`), [sub]);
 
   // Passive points: every 3h the app is open, grant 50 pts
   useEffect(() => {
@@ -132,6 +134,16 @@ function Pomodoro({ life, setLife }: { life: LifeState; setLife: SetLife }) {
     };
   }, [running, mode, focusMin, setLife]);
 
+  /* A finished focus session is logged here rather than inside the setSecs
+     updater above: React may re-run updaters, and this must count once. */
+  const logged = useRef(life.pomodoroSessions.length);
+  useEffect(() => {
+    if (life.pomodoroSessions.length > logged.current) {
+      logged.current = life.pomodoroSessions.length;
+      track("pomodoro_done", `${focusMin} min`);
+    }
+  }, [life.pomodoroSessions.length, focusMin]);
+
   const total = (mode === "focus" ? focusMin : breakMin) * 60;
   const pct = total ? 1 - secs / total : 0;
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");
@@ -219,12 +231,17 @@ function Habits({ life, setLife }: { life: LifeState; setLife: SetLife }) {
   const todayMood = life.moodLogs.find((m) => m.date === today)?.mood ?? 0;
   const avg = averageMood(life.moodLogs);
 
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    /* Read before updating, and outside the updater — React may run that
+       twice, which would log the same tick two times. Only ticking is worth
+       a line; unticking is a correction, not an action. */
+    if (!(life.checks[today] ?? []).includes(id)) track("habit_done");
     setLife((l) => {
       const cur = l.checks[today] ?? [];
       const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
       return { ...l, checks: { ...l.checks, [today]: next } };
     });
+  };
 
   const setMood = (v: number) =>
     setLife((l) => ({

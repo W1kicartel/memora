@@ -21,6 +21,7 @@ import { updateLearnerProfile } from "./learner";
 import { FACULTIES, dailyPhrase, sessionPhrase } from "./motivation";
 import { Memo } from "./tour";
 import { startUsageHeartbeat } from "./usage";
+import { track } from "./track";
 import {
   IconDecks, IconProgress, IconLife, IconUsers, IconAI, IconSettings,
   IconArrowLeft, IconTrash, IconEdit, IconUpload, IconDownload, IconCheck, IconKey,
@@ -105,6 +106,14 @@ export function App() {
   /* Anonymous usage heartbeat (powers the operator dashboard's stats). */
   useEffect(() => startUsageHeartbeat(), []);
 
+  /* One line in the action log per launch, so a session has a beginning. */
+  useEffect(() => track("app_open"), []);
+
+  /* Every section change, however it was reached — sidebar, back button or
+     a jump from another view. Watching view.tab catches them all in one
+     place, instead of one call per button. */
+  useEffect(() => track("nav", view.tab), [view.tab]);
+
   /* Browser-mode Spotify OAuth: if we just landed on /callback, finish it.
      The bacheca's song widget listens for the event and reloads its state. */
   useEffect(() => {
@@ -152,6 +161,7 @@ export function App() {
     setDecks(d);
     setEvents(e);
     setView({ tab: "dashboard" });
+    track("demo_loaded");
   }
 
   function addCards(deckId: string | null, newName: string, cards: ParsedCard[]) {
@@ -247,8 +257,15 @@ export function App() {
             events={events}
             faculty={settings.faculty}
             onOpen={(id) => setView({ tab: "deck", deckId: id })}
-            onCreate={(name) => setDecks((ds) => [...ds, { id: uid(), name, cards: [] }])}
-            onDelete={(id) => setDecks((ds) => ds.filter((d) => d.id !== id))}
+            onCreate={(name) => {
+              setDecks((ds) => [...ds, { id: uid(), name, cards: [] }]);
+              track("deck_created");
+            }}
+            onDelete={(id) => {
+              const gone = decks.find((d) => d.id === id);
+              setDecks((ds) => ds.filter((d) => d.id !== id));
+              track("deck_deleted", `${gone?.cards.length ?? 0} card`);
+            }}
           />
         )}
 
@@ -256,24 +273,26 @@ export function App() {
           <DeckDetail
             deck={activeDeck}
             onBack={() => setView({ tab: "decks" })}
-            onStudy={() => setView({ tab: "study", deckId: activeDeck.id })}
-            onStudyAll={() => setView({ tab: "study", deckId: activeDeck.id, reviewAll: true })}
-            onAddCard={(f, b) => addCards(activeDeck.id, "", [{ front: f, back: b }])}
-            onImportCards={(cs) => addCards(activeDeck.id, "", cs)}
-            onDeleteCard={(cardId) =>
+            onStudy={() => { track("study_started", "due"); setView({ tab: "study", deckId: activeDeck.id }); }}
+            onStudyAll={() => { track("study_started", "all"); setView({ tab: "study", deckId: activeDeck.id, reviewAll: true }); }}
+            onAddCard={(f, b) => { addCards(activeDeck.id, "", [{ front: f, back: b }]); track("card_added"); }}
+            onImportCards={(cs) => { addCards(activeDeck.id, "", cs); track("cards_imported", cs.length); }}
+            onDeleteCard={(cardId) => {
               setDecks((ds) =>
                 ds.map((d) => d.id === activeDeck.id
                   ? { ...d, cards: d.cards.filter((c) => c.id !== cardId) } : d)
-              )
-            }
+              );
+              track("card_deleted");
+            }}
             /* Fixing a typo shouldn't cost you the card's history: only the
                text changes, the SM-2 schedule and due date carry over. */
-            onEditCard={(cardId, front, back) =>
+            onEditCard={(cardId, front, back) => {
               setDecks((ds) =>
                 ds.map((d) => d.id !== activeDeck.id ? d
                   : { ...d, cards: d.cards.map((c) => c.id === cardId ? { ...c, front, back } : c) })
-              )
-            }
+              );
+              track("card_edited");
+            }}
           />
         )}
 
@@ -282,7 +301,7 @@ export function App() {
             deck={activeDeck}
             settings={settings}
             reviewAll={view.reviewAll}
-            onExit={() => setView({ tab: "deck", deckId: activeDeck.id })}
+            onExit={() => { track("study_finished"); setView({ tab: "deck", deckId: activeDeck.id }); }}
             onGrade={(card, q) => recordReview(activeDeck.id, card, q)}
           />
         )}
@@ -301,7 +320,10 @@ export function App() {
           <AIAssistant
             settings={settings}
             decks={decks}
-            onAddCards={addCards}
+            onAddCards={(deckId, newName, cards) => {
+              addCards(deckId, newName, cards);
+              track("ai_used", `${cards.length} card`);
+            }}
             onGoSettings={() => setView({ tab: "settings" })}
           />
         )}
@@ -369,7 +391,14 @@ function UpdateToast() {
         </>
       ) : (
         <>
-          <p>Aggiornamento{status.version ? ` ${status.version}` : ""} pronto{HAS_GIFT && <span aria-hidden="true"> ♥</span>}</p>
+          {HAS_GIFT
+            ? (
+              <p className="update-toast-note">
+                Avevo promesso che quest'app sarebbe rimasta anche dopo di me, io le promesse non le infrango, un passo alla volta puoi arrivare dove vuoi, inizia dal primo
+                <span className="update-toast-sig">— per l'ultima volta il tuo batman <span aria-hidden="true">♥</span></span>
+              </p>
+            )
+            : <p>Aggiornamento{status.version ? ` ${status.version}` : ""} pronto</p>}
           <button className="primary small" onClick={() => window.memoraAI?.installUpdate?.()}>
             Riavvia e aggiorna
           </button>

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Deck, Settings } from "./types";
 import type { ParsedCard } from "./import";
 import { IconUpload, IconDownload } from "./icons";
@@ -23,6 +23,7 @@ import {
 } from "./engine";
 import { printHtml, exportNode, cardsToHtml, examToHtml } from "./exportpdf";
 import { Markdown } from "./markdown";
+import { track } from "./track";
 import { statusLabel, useOllamaStatus, retryOllama, DEFAULT_OLLAMA_MODEL } from "./ollama";
 
 type Tab = "cards" | "summary" | "exam" | "extra";
@@ -39,6 +40,7 @@ export function AIAssistant({
   onGoSettings: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("cards");
+  useEffect(() => track("nav_sub", `ia/${tab}`), [tab]);
   const [level, setLevel] = useState<StudyLevel>(DEFAULT_LEVEL);
   const [subject, setSubject] = useState<StudySubject>(DEFAULT_SUBJECT);
   const provider = settings.provider ?? "ollama";
@@ -141,8 +143,11 @@ function LevelPicker({ level, onChange }: { level: StudyLevel; onChange: (l: Stu
 
 /** Small "Download PDF" action, consistent across panels. */
 function PdfButton({ onClick }: { onClick: () => void }) {
+  /* Every PDF export in this view goes through here, so one call covers
+     flashcards, notes, mock tests and the extra tools alike. */
   return (
-    <button className="ghost small pdf-btn" type="button" onClick={onClick}
+    <button className="ghost small pdf-btn" type="button"
+      onClick={() => { track("export_pdf"); onClick(); }}
       style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
       <IconDownload size={13} /> Scarica PDF
     </button>
